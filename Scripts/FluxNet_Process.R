@@ -34,12 +34,60 @@ list <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
 #Loop over the list of files
 Fluxnet_Site <- list()
 for(i in seq_along(list)) {
-  Fluxnet_Site[[i]] = try(fLoadFluxNCIntoDataframe(VarList.V.s=c('year', 'NEE_f','GPP_f','Reco','NEE_fqcok'),
+  Fluxnet_Site[[i]] = try(fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcok'),
                                           FileName.s=list[i], NcPackage.s = 'RNetCDF'))
 }
 
 # Remove the broken flux net sites from the list of dataframe
 Fluxnet_Site<-Fluxnet_Site[sapply(Fluxnet_Site, function(x) !inherits(x, "try-error"))]
+
+# Remove data before disturbance from the list of dataframe
+Site_Date<-read.csv("Input/Potential_Sites.csv", header = TRUE)
+# Fluxnet_Site[1][!(Fluxnet_Site$DateTime %in% Site_Date$Measure.Date[1]),]
+# 
+# Fluxnet_Site[1]<-with(Fluxnet_Site[1], Fluxnet_Site[1][(Fluxnet_Site[1]$DateTime <= Site_Date$Measure.Date),])
+# subset(Fluxnet_Site[1], Fluxnet_Site[1]$DateTime >= Site_Date$Measure.Date[1])
+
+#2. Analyse annual variability of the fluxes
+
+#Merge all site together
+dfAll_Sites_Raw<- do.call("rbind", Fluxnet_Site)
+
+#Plot data raw flux data
+# NEE
+p1<-ggplot(dfAll_Sites_Raw, aes(dfAll_Sites_Raw$DateTime, dfAll_Sites_Raw$NEE_f[order(dfAll_Sites_Raw$DateTime)])) +
+  geom_line() +
+  # geom_path()+
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since disturbance") + ylab("NEE (g.m-2.day-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#GPP
+p2<-ggplot(dfAll_Sites_Raw, aes(dfAll_Sites_Raw$DateTime, dfAll_Sites_Raw$GPP_f[order(dfAll_Sites_Raw$DateTime)])) +
+  geom_line() +
+  # geom_path()+
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since disturbance") + ylab("NEE (g.m-2.day-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#TER
+p3<-ggplot(dfAll_Sites_Raw, aes(dfAll_Sites_Raw$DateTime, dfAll_Sites_Raw$Reco[order(dfAll_Sites_Raw$DateTime)])) +
+  geom_line() +
+  # geom_path()+
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since disturbance") + ylab("NEE (g.m-2.day-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave(p3, filename = 'Latex/Figures/BR_Sa3/BR_Sa3_TER.png', width = 12, height = 4)
+
+#3. Analyse inter-annual variability of the fluxe
 
 # Compute mean annual +/- sd
 Mean_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
@@ -62,30 +110,6 @@ dfAll_Sites<- do.call("rbind", Mean_Sd_Flux)
 dfAll_Sites$Year_Disturbance <- as.integer(as.character(dfAll_Sites$Year_Disturbance))
 dfAll_Sites<- dfAll_Sites[-c(76),] #Remove outlier
 saveRDS(dfAll_Sites, file="Output/dfAll_Sites.rds")
-
-#Plot data raw flux data
-# NEE
-p1<-ggplot(df, aes(df$DateTime, df$NEE_f)) + geom_line(size=0.2) + 
-  xlab("") + ylab("NEE (g.m-2.day-1)")+ 
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-#GPP
-p2<-ggplot(df, aes(df$DateTime, df$GPP_f)) + geom_line(size=0.2) + 
-  xlab("") + ylab("GPP (g.m-2.day-1)")+ 
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-#TER
-p3<-ggplot(df, aes(df$DateTime, df$Reco)) + geom_line(size=0.2) + 
-  xlab("") + ylab("Reco (g.m-2.day-1)")+ 
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-ggsave(p3, filename = 'Latex/Figures/BR_Sa3/BR_Sa3_TER.png', width = 12, height = 4)
 
 #Plot data mean/sd flux data
 
