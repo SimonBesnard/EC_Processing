@@ -74,6 +74,7 @@ for (i in seq_along(Mean_Sd_Flux)){
   Mean_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
   Mean_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
   Mean_Sd_Flux[[i]]$Year_Disturbance<- Mean_Sd_Flux[[i]]$year- year(Site_Date$Measure_Date[i])
+  Mean_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
 }
 
 #Combine the flux sites in one dataframe
@@ -86,46 +87,60 @@ limits_GPP <- aes(ymax = mean_GPP + sd_GPP, ymin=mean_GPP - sd_GPP)
 limits_TER <- aes(ymax = mean_TER + sd_Reco, ymin=mean_TER - sd_Reco)
 
 #NEE
-gg1<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_NEE)) +
+colourCount = length(unique(dfAll_Sites$Site_ID))
+getPalette = colorRampPalette(brewer.pal(12, "Paired"))
+
+gg1<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_NEE,
+                             colour=dfAll_Sites$Site_ID)) +
   facet_wrap(~Disturbance, ncol=1)+
-  geom_point(size=2, shape=3) +
+  geom_point(size=3, shape=3) +
   # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("Annual Mean-NEE (g.m-2.day-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #GPP
-gg2<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_GPP)) +
+gg2<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_GPP,
+                             colour=dfAll_Sites$Site_ID)) +
   facet_wrap(~Disturbance, ncol=1)+
-  geom_point(size=2, shape=3) +
+  geom_point(size=3, shape=3) +
   # geom_path()+
   # geom_errorbar(limits_GPP, width=0.07, linetype=6)+
   xlab("Year since disturbance") + ylab("Annual Mean-GPP (g.m-2.day-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(legend.title = element_text(size=12, face="bold"))+
+  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #TER
-gg3<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_TER)) +
-  geom_point(size=2, shape=3) +
+gg3<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_TER,
+                             colour=dfAll_Sites$Site_ID)) +
+  geom_point(size=3, shape=3) +
   facet_wrap(~Disturbance, ncol=1)+
   # geom_path()+
   # geom_errorbar(limits_TER, width=0.07, linetype=6)+
   xlab("Year since disturbance") + ylab("Annual Mean-TER (g.m-2.day-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
-# ggsave(gg3, filename = 'Latex/Figures/Dist_TER_Mean.eps', width = 10, height = 8)
+#Export map
+ggsave(gg3, filename = 'Latex/Figures/Dist_TER_Mean.eps', width = 14, height = 8)
 
 #4 Explain variabilty of the fluxes
 
 #4.1. Fluxes
 
-#NEE
-fit = lm(mean_NEE ~ Disturbance + Climate + Ecosytem, data=dfAll_Sites)
+#Compute linear model
+fit = lm(mean_GPP ~ Disturbance + Climate + Ecosytem, data=dfAll_Sites)
 
 #Compute Anova
 summary(fit)
@@ -141,24 +156,5 @@ afss <- af$"Sum of Sq"
 print(cbind(af,PctExp=afss/sum(afss)*100))
 
 #Compute performance of the model
-step(fit, direction = c("both"), steps = 2000)
-
-#GPP
-fit = lm(mean_GPP ~ Climate + Ecosytem + Disturbance, data=dfAll_Sites)
-summary(fit)
-
-m3 = fit
-m2 = update(m3, ~ . - Disturbance)
-m1 = update(m2, ~ . - Ecosytem)
-
-anova(m1,m2,m3)
-
-#TER
-fit = lm(mean_TER ~ Climate + Ecosytem + Disturbance, data=dfAll_Sites)
-summary(fit)
-
-m3 = fit
-m2 = update(m3, ~ . - Disturbance)
-m1 = update(m2, ~ . - Ecosytem)
-
-anova(m1,m2,m3)
+af<-step(fit, direction = c("both"), steps = 2000)
+summary(af)
