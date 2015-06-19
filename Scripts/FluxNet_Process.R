@@ -13,7 +13,8 @@
 # install.packages("dplyr")
 # install.packages("testthat")
 # install.packages('gtools')
-install.packages("FactoMineR")
+# install.packages("FactoMineR")
+# install.packages("leaps")
 
 library(RNetCDF)
 library (ggplot2)
@@ -26,6 +27,7 @@ library (plyr)
 require(testthat)
 library(gtools)
 library(FactoMineR)
+library (leaps)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -116,14 +118,16 @@ gg3<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_TER)
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggsave(gg3, filename = 'Latex/Figures/Dist_TER_Mean.eps', width = 10, height = 8)
+# ggsave(gg3, filename = 'Latex/Figures/Dist_TER_Mean.eps', width = 10, height = 8)
 
 #4 Explain variabilty of the fluxes
 
 #4.1. Fluxes
 
 #NEE
-fit = lm(mean_NEE ~ Climate + Ecosytem + Disturbance, data=dfAll_Sites)
+fit = lm(mean_NEE ~ Disturbance + Climate + Ecosytem, data=dfAll_Sites)
+
+#Compute Anova
 summary(fit)
 af<-anova(fit)
 afss <- af$"Sum Sq"
@@ -136,6 +140,8 @@ af<-anova(m1,m2,m3)
 afss <- af$"Sum of Sq"
 print(cbind(af,PctExp=afss/sum(afss)*100))
 
+#Compute performance of the model
+step(fit, direction = c("both"), steps = 2000)
 
 #GPP
 fit = lm(mean_GPP ~ Climate + Ecosytem + Disturbance, data=dfAll_Sites)
