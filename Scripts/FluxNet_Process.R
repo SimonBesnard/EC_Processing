@@ -28,6 +28,7 @@ require(testthat)
 library(gtools)
 library(FactoMineR)
 library (leaps)
+library (RColorBrewer)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -74,12 +75,13 @@ for (i in seq_along(Mean_Sd_Flux)){
   Mean_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
   Mean_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
   Mean_Sd_Flux[[i]]$Year_Disturbance<- Mean_Sd_Flux[[i]]$year- year(Site_Date$Measure_Date[i])
+  Mean_Sd_Flux[[i]]$GPP_ER<- Mean_Sd_Flux[[i]]$mean_GPP / Mean_Sd_Flux[[i]]$mean_TER
   Mean_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
 }
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Mean_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(53),]# the measurements seems to be an outlier
+dfAll_Sites<-dfAll_Sites[-c(66),]# the measurements seems to be an outlier
 
 #Plot data mean/sd flux data
 limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
@@ -92,7 +94,7 @@ getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 
 gg1<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_NEE,
                              colour=dfAll_Sites$Site_ID)) +
-  facet_wrap(~Disturbance, ncol=1)+
+  # facet_wrap(~Climate, ncol=1)+
   geom_point(size=3, shape=3) +
   # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
@@ -106,7 +108,7 @@ gg1<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_NEE,
 #GPP
 gg2<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_GPP,
                              colour=dfAll_Sites$Site_ID)) +
-  facet_wrap(~Disturbance, ncol=1)+
+  # facet_wrap(~Climate, ncol=1)+
   geom_point(size=3, shape=3) +
   # geom_path()+
   # geom_errorbar(limits_GPP, width=0.07, linetype=6)+
@@ -122,7 +124,7 @@ gg2<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_GPP,
 gg3<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_TER,
                              colour=dfAll_Sites$Site_ID)) +
   geom_point(size=3, shape=3) +
-  facet_wrap(~Disturbance, ncol=1)+
+  # facet_wrap(~Climate, ncol=1)+
   # geom_path()+
   # geom_errorbar(limits_TER, width=0.07, linetype=6)+
   xlab("Year since disturbance") + ylab("Annual Mean-TER (g.m-2.day-1)")+ 
@@ -132,8 +134,23 @@ gg3<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_TER,
   scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
-#Export map
-ggsave(gg3, filename = 'Latex/Figures/Dist_TER_Mean.eps', width = 14, height = 8)
+#Ratio GPP and Reco
+gg3<-ggplot(dfAll_Sites,aes(Year_Disturbance, GPP_ER)) +
+  geom_point (shape=3, size=3)+
+  facet_wrap(~Climate, ncol=1)+
+  geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
+  # geom_path()+
+  # geom_errorbar(limits_TER, width=0.07, linetype=6)+
+  xlab("Year since disturbance") + ylab("GPP/Reco")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  # scale_shape_manual(name= "Type of disturbance", values=1:nlevels(dfAll_Sites$Disturbance))+ 
+  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
+
+
+#Export plot
+ggsave(gg3, filename = 'Latex/Figures/All_Sites/Climate_GPP_TER_Mean.eps', width = 14, height = 8)
 
 #4 Explain variabilty of the fluxes
 
