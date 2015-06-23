@@ -57,11 +57,17 @@ for (i in seq_along(Fluxnet_Site)){
 Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Measure_Date[i]),])
 }
 
+# Remove uncomplete year after disturbance
+Fluxnet_Site[[1]]$DateTime
+
 #3. Analyse inter-annual variability of the fluxex
 
-# Compute mean annual +/- sd
-Mean_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
+# Compute sum annual +/- sd
+Sum_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
                     summarize,
+                    sum_NEE= sum(NEE_f, na.rm=T),
+                    sum_GPP= sum(GPP_f, na.rm=T),
+                    sum_TER= sum(Reco,na.rm=T),
                     mean_NEE= mean(NEE_f, na.rm=T),
                     mean_GPP= mean(GPP_f, na.rm=T),
                     mean_TER= mean(Reco,na.rm=T),
@@ -70,17 +76,17 @@ Mean_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
                     sd_Reco= sd(Reco, na.rm=T)))
 
 #Add type of ecosystem, type of climate, type of disturbance and year after disturbance for each sites
-for (i in seq_along(Mean_Sd_Flux)){
-  Mean_Sd_Flux[[i]]$Ecosytem<- Site_Date$Ecosystem[i]
-  Mean_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
-  Mean_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
-  Mean_Sd_Flux[[i]]$Year_Disturbance<- Mean_Sd_Flux[[i]]$year- year(Site_Date$Measure_Date[i])
-  Mean_Sd_Flux[[i]]$GPP_ER<- Mean_Sd_Flux[[i]]$mean_GPP / Mean_Sd_Flux[[i]]$mean_TER
-  Mean_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
+for (i in seq_along(Sum_Sd_Flux)){
+  Sum_Sd_Flux[[i]]$Ecosytem<- Site_Date$Ecosystem[i]
+  Sum_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
+  Sum_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
+  Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(Site_Date$Measure_Date[i])
+  Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$sum_GPP / Sum_Sd_Flux[[i]]$sum_TER
+  Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
 }
 
 #Combine the flux sites in one dataframe
-dfAll_Sites<- do.call("rbind", Mean_Sd_Flux)
+dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 dfAll_Sites<-dfAll_Sites[-c(66),]# the measurements seems to be an outlier
 
 #Plot data mean/sd flux data
@@ -88,17 +94,18 @@ limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
 limits_GPP <- aes(ymax = mean_GPP + sd_GPP, ymin=mean_GPP - sd_GPP)
 limits_TER <- aes(ymax = mean_TER + sd_Reco, ymin=mean_TER - sd_Reco)
 
-#NEE
+# 4. Plot all sites together
+
+#4.1. Without partitioning variable
 colourCount = length(unique(dfAll_Sites$Site_ID))
 getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 
-gg1<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_NEE,
-                             colour=dfAll_Sites$Site_ID)) +
-  # facet_wrap(~Climate, ncol=1)+
-  geom_point(size=3, shape=3) +
+#NEE
+gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, shape=Disturbance, colour=Site_ID)) +
+  geom_point(size=3) +
   # geom_path()+
-  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
-  xlab("Year since Disturbance") + ylab("Annual Mean-NEE (g.m-2.day-1)")+ 
+  geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since Disturbance") + ylab("NEE (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
@@ -106,48 +113,82 @@ gg1<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_NEE,
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #GPP
-gg2<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_GPP,
-                             colour=dfAll_Sites$Site_ID)) +
-  # facet_wrap(~Climate, ncol=1)+
-  geom_point(size=3, shape=3) +
+gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, shape=Disturbance, colour=Site_ID)) +
+  geom_point(size=3) +
   # geom_path()+
-  # geom_errorbar(limits_GPP, width=0.07, linetype=6)+
-  xlab("Year since disturbance") + ylab("Annual Mean-GPP (g.m-2.day-1)")+ 
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since Disturbance") + ylab("GPP (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  theme(legend.title = element_text(size=12, face="bold"))+
   scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #TER
-gg3<-ggplot(dfAll_Sites, aes(dfAll_Sites$Year_Disturbance, dfAll_Sites$mean_TER,
-                             colour=dfAll_Sites$Site_ID)) +
-  geom_point(size=3, shape=3) +
-  # facet_wrap(~Climate, ncol=1)+
+gg3<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, shape=Disturbance, colour=Site_ID)) +
+  geom_point(size=3) +
   # geom_path()+
-  # geom_errorbar(limits_TER, width=0.07, linetype=6)+
-  xlab("Year since disturbance") + ylab("Annual Mean-TER (g.m-2.day-1)")+ 
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since Disturbance") + ylab("TER (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
-#Ratio GPP and Reco
+# 4.2. Partition flux data per variable
+
+#NEE
+gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, colour=Site_ID)) +
+  facet_wrap(~Disturbance, ncol = 1)+
+  geom_point(size=3, shape=3) +
+  # geom_path()+
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since Disturbance") + ylab("NEE (g.m-2.y-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
+
+#GPP
+gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, colour=Site_ID)) +
+  facet_wrap(~Disturbance, ncol = 1)+
+  geom_point(size=3, shape=3) +
+  # geom_path()+
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since Disturbance") + ylab("GPP (g.m-2.y-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
+
+#TER
+gg3<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, colour=Site_ID)) +
+  facet_wrap(~Disturbance, ncol = 1)+
+  geom_point(size=3, shape=3) +
+  # geom_path()+
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  xlab("Year since Disturbance") + ylab("TER (g.m-2.y-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
+
+# 4.3. Ratio GPP and Reco
 gg3<-ggplot(dfAll_Sites,aes(Year_Disturbance, GPP_ER)) +
   geom_point (shape=3, size=3)+
-  facet_wrap(~Climate, ncol=1)+
+  facet_wrap(~Disturbance, ncol=1, scales="free_y")+
+  expand_limits(x = 0, y = 0)+
+  scale_y_continuous(breaks = round(seq(min(dfAll_Sites$GPP_ER), max(dfAll_Sites$GPP_ER), by = 0.5),1))+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
-  # geom_path()+
   # geom_errorbar(limits_TER, width=0.07, linetype=6)+
   xlab("Year since disturbance") + ylab("GPP/Reco")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  # scale_shape_manual(name= "Type of disturbance", values=1:nlevels(dfAll_Sites$Disturbance))+ 
-  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
-
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 #Export plot
 ggsave(gg3, filename = 'Latex/Figures/All_Sites/Climate_GPP_TER_Mean.eps', width = 14, height = 8)
