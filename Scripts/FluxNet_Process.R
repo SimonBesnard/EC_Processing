@@ -86,12 +86,17 @@ for (i in seq_along(Sum_Sd_Flux)){
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
 
-#Plot data mean/sd flux data
+#Fitting polymonial model to ecosystem response
+Third_Function<-lm(dfAll_Sites$sum_GPP ~ dfAll_Sites$Year_Disturbance + I(dfAll_Sites$Year_Disturbance^2) + I(dfAll_Sites$Year_Disturbance^3))
+Second_Function<-lm(dfAll_Sites$sum_GPP ~ dfAll_Sites$Year_Disturbance + I(dfAll_Sites$Year_Disturbance^1) + I(dfAll_Sites$Year_Disturbance^2))
+
+
+# 4. Plot all sites together
+
+#Compute error
 limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
 limits_GPP <- aes(ymax = mean_GPP + sd_GPP, ymin=mean_GPP - sd_GPP)
 limits_TER <- aes(ymax = mean_TER + sd_Reco, ymin=mean_TER - sd_Reco)
-
-# 4. Plot all sites together
 
 #4.1. Without partitioning variable
 colourCount = length(unique(dfAll_Sites$Site_ID))
