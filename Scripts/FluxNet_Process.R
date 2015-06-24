@@ -39,12 +39,9 @@ list <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
 #Loop over the list of files
 Fluxnet_Site <- list()
 for(i in seq_along(list)) {
-  Fluxnet_Site[[i]] = try(fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcok'),
-                                          FileName.s=list[i], NcPackage.s = 'RNetCDF'))
+  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcOK'),
+                                          FileName.s=list[i], NcPackage.s = 'RNetCDF')
 }
-
-# Remove the broken flux net sites from the list of dataframe
-Fluxnet_Site<-Fluxnet_Site[sapply(Fluxnet_Site, function(x) !inherits(x, "try-error"))]
 
 # Remove data before disturbance from the list of dataframe
 Site_Date<-read.csv("Input/Potential_Sites.csv", header = TRUE)
@@ -87,7 +84,7 @@ for (i in seq_along(Sum_Sd_Flux)){
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(66),]# the measurements seems to be an outlier
+dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
 
 #Plot data mean/sd flux data
 limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
@@ -104,7 +101,7 @@ getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, shape=Disturbance, colour=Site_ID)) +
   geom_point(size=3) +
   # geom_path()+
-  geom_errorbar(limits_NEE, width=0.07, linetype=6)+
+  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("NEE (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
@@ -139,7 +136,7 @@ gg3<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, shape=Disturbance, colou
 # 4.2. Partition flux data per variable
 
 #NEE
-gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, colour=Site_ID)) +
+gg4<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, colour=Site_ID)) +
   facet_wrap(~Disturbance, ncol = 1)+
   geom_point(size=3, shape=3) +
   # geom_path()+
@@ -152,7 +149,7 @@ gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, colour=Site_ID)) +
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #GPP
-gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, colour=Site_ID)) +
+gg5<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, colour=Site_ID)) +
   facet_wrap(~Disturbance, ncol = 1)+
   geom_point(size=3, shape=3) +
   # geom_path()+
@@ -165,7 +162,7 @@ gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, colour=Site_ID)) +
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #TER
-gg3<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, colour=Site_ID)) +
+gg6<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, colour=Site_ID)) +
   facet_wrap(~Disturbance, ncol = 1)+
   geom_point(size=3, shape=3) +
   # geom_path()+
@@ -178,11 +175,11 @@ gg3<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, colour=Site_ID)) +
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 # 4.3. Ratio GPP and Reco
-gg3<-ggplot(dfAll_Sites,aes(Year_Disturbance, GPP_ER)) +
+gg7<-ggplot(dfAll_Sites,aes(Year_Disturbance, GPP_ER)) +
   geom_point (shape=3, size=3)+
   facet_wrap(~Disturbance, ncol=1, scales="free_y")+
   expand_limits(x = 0, y = 0)+
-  scale_y_continuous(breaks = round(seq(min(dfAll_Sites$GPP_ER), max(dfAll_Sites$GPP_ER), by = 0.5),1))+
+  # scale_y_continuous(breaks = round(seq(min(dfAll_Sites$GPP_ER), max(dfAll_Sites$GPP_ER), by = 0.5),1))+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
   # geom_errorbar(limits_TER, width=0.07, linetype=6)+
   xlab("Year since disturbance") + ylab("GPP/Reco")+ 
