@@ -15,6 +15,7 @@
 # install.packages('gtools')
 # install.packages("FactoMineR")
 # install.packages("leaps")
+install.packages("gamm4")
 
 library(RNetCDF)
 library (ggplot2)
@@ -29,6 +30,7 @@ library(gtools)
 library(FactoMineR)
 library (leaps)
 library (RColorBrewer)
+library(gamm4)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -86,12 +88,13 @@ for (i in seq_along(Sum_Sd_Flux)){
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
 
-#Fitting polymonial model to ecosystem response
-Third_Function<-lm(dfAll_Sites$sum_GPP ~ dfAll_Sites$Year_Disturbance + I(dfAll_Sites$Year_Disturbance^2) + I(dfAll_Sites$Year_Disturbance^3))
-Second_Function<-lm(dfAll_Sites$sum_GPP ~ dfAll_Sites$Year_Disturbance + I(dfAll_Sites$Year_Disturbance^1) + I(dfAll_Sites$Year_Disturbance^2))
-
+#Fitting non-linear model to ecosystem response
+fit.mean <- function(x){1.23*(1-exp(-0.224*x))}
 
 # 4. Plot all sites together
+
+#Keep harvest and fire disturbance
+dfAll_Sites<- dfAll_Sites[!dfAll_Sites$Disturbance %in% c("Insect_Outbreaks", "Thinning"),]
 
 #Compute error
 limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
@@ -103,7 +106,7 @@ colourCount = length(unique(dfAll_Sites$Site_ID))
 getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 
 #NEE
-gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, shape=Disturbance, colour=Site_ID)) +
+gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, shape=Disturbance)) +
   geom_point(size=3) +
   # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
@@ -111,11 +114,11 @@ gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, shape=Disturbance, colou
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #GPP
-gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, shape=Disturbance, colour=Site_ID)) +
+gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, shape=Disturbance)) +
   geom_point(size=3) +
   # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
@@ -123,7 +126,7 @@ gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, shape=Disturbance, colou
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #TER
@@ -154,35 +157,37 @@ gg4<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, colour=Site_ID)) +
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #GPP
-gg5<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, colour=Site_ID)) +
+gg5<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP)) +
   facet_wrap(~Disturbance, ncol = 1)+
   geom_point(size=3, shape=3) +
-  # geom_path()+
+  geom_smooth()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("GPP (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #TER
-gg6<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, colour=Site_ID)) +
+gg6<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER)) +
   facet_wrap(~Disturbance, ncol = 1)+
   geom_point(size=3, shape=3) +
+  geom_smooth()+
   # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("TER (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 # 4.3. Ratio GPP and Reco
 gg7<-ggplot(dfAll_Sites,aes(Year_Disturbance, GPP_ER)) +
   geom_point (shape=3, size=3)+
   facet_wrap(~Disturbance, ncol=1, scales="free_y")+
+  stat_function(fun=fit.mean, color="red") +
   expand_limits(x = 0, y = 0)+
   # scale_y_continuous(breaks = round(seq(min(dfAll_Sites$GPP_ER), max(dfAll_Sites$GPP_ER), by = 0.5),1))+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
@@ -193,7 +198,7 @@ gg7<-ggplot(dfAll_Sites,aes(Year_Disturbance, GPP_ER)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 #Export plot
-ggsave(gg3, filename = 'Latex/Figures/All_Sites/Climate_GPP_TER_Mean.eps', width = 14, height = 8)
+ggsave(gg7, filename = 'Latex/Figures/All_Sites/Dist_GPP_TER.eps', width = 14, height = 8)
 
 #4 Explain variabilty of the fluxes
 
