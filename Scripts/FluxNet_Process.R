@@ -96,6 +96,8 @@ fit.mean <- function(x){1.23*(1-exp(-0.224*x))}
 #Keep harvest and fire disturbance
 dfAll_Sites<- dfAll_Sites[!dfAll_Sites$Disturbance %in% c("Insect_Outbreaks", "Thinning"),]
 
+dfAll_Sites<-read.csv("Output/dfAll_Sites.csv", sep=",")
+
 #Compute error
 limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
 limits_GPP <- aes(ymax = mean_GPP + sd_GPP, ymin=mean_GPP - sd_GPP)
@@ -144,16 +146,17 @@ gg3<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, shape=Disturbance, colou
 # 4.2. Partition flux data per variable
 
 #NEE
-gg4<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, colour=Site_ID)) +
-  facet_wrap(~Disturbance, ncol = 1)+
+gg4<-ggplot(dfAll_Sites, aes(Year_Disturbance, Value, shape=Disturbance)) +
+  facet_grid(Flux_Type~Disturbance)+
   geom_point(size=3, shape=3) +
+  geom_smooth()+
   # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
-  xlab("Year since Disturbance") + ylab("NEE (g.m-2.y-1)")+ 
+  xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
+  scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
   guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
 
 #GPP
