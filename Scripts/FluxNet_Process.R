@@ -94,6 +94,8 @@ dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosytem, -mean_Unce
 #Reoder column
 dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosytem")]
 
+# Reclassify climate classification
+
 # 4. Plot all sites together
 
 #Fitting non-linear model to ecosystem response
@@ -198,8 +200,9 @@ gg7<-ggplot(Plot_Ratio,aes(Year_Disturbance, values, colour=mean_Uncert)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#22FF00")
+  scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#00FF33")
 
+Plot_Ratio$Climate
 
 #Export plot
 ggsave(gg7, filename = 'Latex/Figures/All_Sites/Dist_GPP_TER.eps', width = 14, height = 8)
