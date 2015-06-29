@@ -16,7 +16,7 @@
 # install.packages("FactoMineR")
 # install.packages("leaps")
 # install.packages("gamm4")
-install.packages("tidyr")
+# install.packages("tidyr")
 
 library(RNetCDF)
 library (ggplot2)
@@ -80,6 +80,7 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
   Sum_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
   Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(Site_Date$Measure_Date[i])
+  Sum_Sd_Flux[[i]]$Species<- Site_Date$Species[i]
   Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$sum_GPP / Sum_Sd_Flux[[i]]$sum_TER
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
 }
@@ -89,12 +90,15 @@ dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
 
 # Restrucutre dataframe
-dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosytem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
+dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Species, -Ecosytem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosytem")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosytem", "Species")]
 
 # Reclassify climate classification
+dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
+                    ifelse((dfAll_Sites$Climate =="Cfa" | dfAll_Sites$Climate =="Cfb" | dfAll_Sites$Climate =="Cfc" | dfAll_Sites$Climate =="Csa" | dfAll_Sites$Climate =="Csb"), "Temperate",
+                           ifelse((dfAll_Sites$Climate =="Dfb" | dfAll_Sites$Climate =="Dfc" | dfAll_Sites$Climate =="Dsc"), "Continental", NA)))
 
 # 4. Plot all sites together
 
@@ -115,7 +119,7 @@ colourCount = length(unique(dfAll_Sites$Site_ID))
 getPalette = colorRampPalette(brewer.pal(12, "Paired"))
 
 #NEE
-gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_NEE, shape=Disturbance)) +
+gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, values)) +
   geom_point(size=3) +
   # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
@@ -167,33 +171,31 @@ g4 <- arrangeGrob(
 
 #Subset data
 Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_NEE", "sum_GPP", "sum_TER"),]
+Plot_Flux<- Plot_Flux[Plot_Flux$Species %in% c("Douglas pine", "Black spruce", "Jack pine"),]
 
-gg4<-ggplot(Plot_Flux, aes(Year_Disturbance, values, shape=Disturbance)) +
-  facet_grid(Type_Flux~Disturbance, scales = "free")+
-  geom_point(size=3, shape=3) +
+gg4<-ggplot(Plot_Flux, aes(Year_Disturbance, values, shape= Disturbance, colour=mean_Uncert)) +
+  geom_point(size=3) +
+  facet_grid(Type_Flux~Species, scales = "free")+
   # stat_function(fun=fit.mean2, color="red") +
   geom_smooth()+
-  # geom_smooth()+
-  # geom_path()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
-  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
+  scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#00FF33")
 
 # 4.3. Ratio GPP and Reco
 
 #Subset data
 Plot_Ratio<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("GPP_ER"),]
+Plot_Ratio<- Plot_Ratio[Plot_Ratio$Species %in% c("Douglas pine", "Black spruce", "Jack pine"),]
 
-gg7<-ggplot(Plot_Ratio,aes(Year_Disturbance, values, colour=mean_Uncert)) +
-  geom_point (shape=3, size=3.5)+
-  facet_wrap(~Disturbance, ncol=1, scales="free")+
+gg7<-ggplot(Plot_Ratio,aes(Year_Disturbance, values, shape=Disturbance, colour=mean_Uncert)) +
+  geom_point (size=3.5)+
+  facet_wrap(~Species, ncol=1, scales="free")+
   stat_function(fun=fit.mean, color="red") +
   expand_limits(x = 0, y = 0)+
-  # scale_y_continuous(breaks = round(seq(min(dfAll_Sites$GPP_ER), max(dfAll_Sites$GPP_ER), by = 0.5),1))+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
   # geom_errorbar(limits_TER, width=0.07, linetype=6)+
   xlab("Year since disturbance") + ylab("GPP/Reco")+ 
@@ -202,31 +204,41 @@ gg7<-ggplot(Plot_Ratio,aes(Year_Disturbance, values, colour=mean_Uncert)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#00FF33")
 
-Plot_Ratio$Climate
-
 #Export plot
 ggsave(gg7, filename = 'Latex/Figures/All_Sites/Dist_GPP_TER.eps', width = 14, height = 8)
 
 #4 Explain variabilty of the fluxes
 
-#4.1. Fluxes
+#4.1. Anova analysis
+
+#Subset dataset
+dfAll_Sites$Year_Disturbance<-as.factor(dfAll_Sites$Year_Disturbance)
+dfAll_Sites$Climate<-as.factor(dfAll_Sites$Climate)
+dfAll_Sites<-na.omit(dfAll_Sites)
+An_GPP<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP"),]
+
+#Compute Anova for GPP
+an<-aov(log(values)~Disturbance, An_GPP)
+summary(an)
+
+#Compute Tukey test
+TukeyHSD(x = an)
+par(mfrow=c(2,2))
+plot(an)
 
 #Compute linear model
-fit = lm(mean_GPP ~ Disturbance + Climate + Ecosytem, data=dfAll_Sites)
-
-#Compute Anova
-summary(fit)
-af<-anova(fit)
-afss <- af$"Sum Sq"
-print(cbind(af,PctExp=afss/sum(afss)*100))
+fit = lm(values ~ Disturbance + Climate + Year_Disturbance, data=An_GPP)
 
 m3 = fit
 m2 = update(m3, ~ . - Ecosytem)
 m1 = update(m2, ~ . - Climate)
-af<-anova(m1,m2,m3)
+m0=  update(m1, ~ . - Year_Disturbance)
+
+af<-anova(m0,m1,m2,m3)
+summary(af)
 afss <- af$"Sum of Sq"
 print(cbind(af,PctExp=afss/sum(afss)*100))
 
 #Compute performance of the model
-af<-step(fit, direction = c("both"), steps = 2000)
+af<-step(fit, direction = c("forward"), steps = 2000)
 summary(af)
