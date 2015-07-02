@@ -114,60 +114,7 @@ limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
 limits_GPP <- aes(ymax = mean_GPP + sd_GPP, ymin=mean_GPP - sd_GPP)
 limits_TER <- aes(ymax = mean_TER + sd_Reco, ymin=mean_TER - sd_Reco)
 
-#4.1. Without partitioning variable
-colourCount = length(unique(dfAll_Sites$Site_ID))
-getPalette = colorRampPalette(brewer.pal(12, "Paired"))
-
-#NEE
-gg1<-ggplot(dfAll_Sites, aes(Year_Disturbance, values)) +
-  geom_point(size=3) +
-  # geom_path()+
-  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
-  # geom_smooth()+
-  xlab("Year since Disturbance") + ylab("NEE (g.m-2.y-1)")+ 
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
-  guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
-
-#GPP
-gg2<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_GPP, shape=Disturbance)) +
-  geom_point(size=3) +
-  # geom_path()+
-  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
-  xlab("Year since Disturbance") + ylab("GPP (g.m-2.y-1)")+ 
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
-  # guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
-
-#TER
-gg3<-ggplot(dfAll_Sites, aes(Year_Disturbance, sum_TER, shape=Disturbance)) +
-  geom_point(size=3) +
-  # geom_path()+
-  # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
-  xlab("Year since Disturbance") + ylab("TER (g.m-2.y-1)")+ 
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  # scale_colour_manual(name="Site ID", values=getPalette(colourCount))+
-  # guides(colour = guide_legend(title.position ="top", title.hjust =0.5, override.aes = list(size=3), ncol=2))
-
-#Plot all plots together
-gA <- ggplotGrob(gg1)
-gB <- ggplotGrob(gg2)
-gC <- ggplotGrob(gg3)
-
-maxWidth = grid::unit.pmax(gA$widths[1:2], gB$widths[1:2], gC$widths[1:2])
-gA$widths[1:2] <- as.list(maxWidth)
-gB$widths[1:2] <- as.list(maxWidth)
-gC$widths[1:2] <- as.list(maxWidth)
-g4 <- arrangeGrob(
-  gA, gB, gC, nrow = 3, heights = c(2, 2))
-
-# 4.2. Partition flux data per variable
+# 4.1. Partition flux data per variable
 
 #Subset data
 Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_NEE", "sum_GPP", "sum_TER"),]
@@ -175,7 +122,7 @@ Plot_Flux<- Plot_Flux[Plot_Flux$Species %in% c("Douglas pine", "Black spruce", "
 
 gg4<-ggplot(Plot_Flux, aes(Year_Disturbance, values, shape= Disturbance, colour=mean_Uncert)) +
   geom_point(size=3) +
-  facet_grid(Type_Flux~Species, scales = "free")+
+  facet_grid(Type_Flux~Disturbance, scales = "free")+
   # stat_function(fun=fit.mean2, color="red") +
   geom_smooth()+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
@@ -185,7 +132,7 @@ gg4<-ggplot(Plot_Flux, aes(Year_Disturbance, values, shape= Disturbance, colour=
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#00FF33")
 
-# 4.3. Ratio GPP and Reco
+# 4.1. Ratio GPP and Reco
 
 #Subset data
 Plot_Ratio<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("GPP_ER"),]
@@ -193,7 +140,7 @@ Plot_Ratio<- Plot_Ratio[Plot_Ratio$Species %in% c("Douglas pine", "Black spruce"
 
 gg7<-ggplot(Plot_Ratio,aes(Year_Disturbance, values, shape=Disturbance, colour=mean_Uncert)) +
   geom_point (size=3.5)+
-  facet_wrap(~Species, ncol=1, scales="free")+
+  facet_wrap(~Disturbance, ncol=1, scales="free")+
   stat_function(fun=fit.mean, color="red") +
   expand_limits(x = 0, y = 0)+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
