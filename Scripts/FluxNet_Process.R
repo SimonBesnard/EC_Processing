@@ -17,6 +17,11 @@
 # install.packages("leaps")
 # install.packages("gamm4")
 # install.packages("tidyr")
+# install.packages("manipulate")
+# install.packages("fitdistrplus")
+# install.packages("evd")
+# install.packages("flexmix")
+
 
 library(RNetCDF)
 library (ggplot2)
@@ -33,6 +38,11 @@ library (leaps)
 library (RColorBrewer)
 library(gamm4)
 library(tidyr)
+library(manipulate)
+library(MASS)
+library(fitdistrplus)
+library(evd)
+library(flexmix)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -89,7 +99,7 @@ for (i in seq_along(Sum_Sd_Flux)){
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
 
-# Restrucutre dataframe
+# Restructure dataframe
 dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Species, -Ecosytem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
 
 #Reoder column
@@ -102,29 +112,81 @@ dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate ==
 
 # 4. Plot all sites together
 
-#Fitting non-linear model to ecosystem response
-fit.mean <- function(x){1.23*(1-exp(-0.224*x))}#Amiro et al. (2010)
-fit.mean2 <- function(x){339.612*(x^0.243)*exp(-0.00364*x)}#Gamma function
+#Fitting non-linear model to ecosystem response - Amiro et al. (2010)
+Amiro_Fun <- function(x){1.23*(1-exp(-0.224*x))}
 
-#Keep harvest and fire disturbance
-dfAll_Sites<- dfAll_Sites[!dfAll_Sites$Disturbance %in% c("Insect_Outbreaks", "Thinning"),]
+#Fitting non-linear model to ecosystem response - Gamma function - Tang et al. (2014)
+Gamma_Fun <- function(x){975.14*(x^0.050)*(exp(-0.00295*x))}
+
+#Fitting non-linear model to ecosystem response - Ricker function
+Ricker_Fun<- function(x){500*x*(exp(-0.3*x/2))}
+
+#Fitting non-linear model to ecosystem response - Spline function
+smooth.spline2 <- function(formula, data, ...) { 
+  mat <- model.frame(formula, data) 
+  smooth.spline(mat[, 2], mat[, 1]) 
+} 
+predictdf.smooth.spline <- function(model, xseq, se, level) { 
+  pred <- predict(model, xseq) 
+  data.frame(x = xseq, y = pred$y) 
+}
+
+#Fitting non-linear model to ecosystem response - Beta function
+fit <- fgev(Plot_Flux$values)
+hist(Plot_Flux$values,prob=T,col="gray", xlab="", ylab="", main="")
+legend("topright", 
+       legend=c("density", "fgev", "flexmix"), 
+       fill=c("darkgreen", "blue", "darkred")
+)
+xval <- seq(from=0, to=max(Plot_Flux$values))
+
+# density
+fit1 <- density(Plot_Flux$values)
+lines(fit1, col="darkgreen", lwd=2)
+
+# generalized extreme value distribution
+fit2 <- fgev(Plot_Flux$values)
+param2 <- fit2$estimate
+loc <- param2[["loc"]]
+scal <- param2[["scale"]]
+shape <- param2[["shape"]]
+lines(xval, dgev(xval, loc=loc, scale=scal, shape=shape), col="blue", lwd=2)
+
+# mixture of two Gamma distributions
+# http://r.789695.n4.nabble.com/Gamma-mixture-models-with-flexmix-tt3328929.html#none
+fit3 <- flexmix(values~1, data=subset(Plot_Flux, values>0), k=2, 
+                model = list(FLXMRglm(family = "Gamma"), FLXMRglm(family = "Gamma"))
+)
+param3 <- parameters(fit3)[[1]] # don't know why this is a list
+interc <- param3[1,]
+shape <- param3[2,]
+lambda <- prior(fit3)
+yval <- lambda[[1]]*dgamma(xval, shape=shape[[1]], rate=interc[[1]]*shape[[1]]) + 
+  lambda[[2]]*dgamma(xval, shape=shape[[2]], rate=interc[[2]]*shape[[2]])
+lines(xval, yval, col="darkred", lwd=2)
 
 #Compute error bars
 limits_NEE <- aes(ymax = mean_NEE + sd_NEE, ymin=mean_NEE - sd_NEE)
 limits_GPP <- aes(ymax = mean_GPP + sd_GPP, ymin=mean_GPP - sd_GPP)
 limits_TER <- aes(ymax = mean_TER + sd_Reco, ymin=mean_TER - sd_Reco)
 
+x<-Plot_Flux[, c("values", "Year_Disturbance")] 
+dput(x)
+
+
 # 4.1. Partition flux data per variable
 
 #Subset data
 Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_NEE", "sum_GPP", "sum_TER"),]
-Plot_Flux<- Plot_Flux[Plot_Flux$Species %in% c("Douglas pine", "Black spruce", "Jack pine"),]
+Plot_Flux<- Plot_Flux[Plot_Flux$Disturbance %in% c("Fire"),]
+Plot_Flux<- Plot_Flux[!Plot_Flux$values ==0,]
 
-gg4<-ggplot(Plot_Flux, aes(Year_Disturbance, values, shape= Disturbance, colour=mean_Uncert)) +
+gg4<-ggplot(Plot_Flux, aes(Year_Disturbance, values, colour=mean_Uncert)) +
   geom_point(size=3) +
   facet_grid(Type_Flux~Disturbance, scales = "free")+
-  # stat_function(fun=fit.mean2, color="red") +
-  geom_smooth()+
+  # stat_smooth(fun="lm", color="red", formula = y ~ x + I(x^2), size = 1)+
+  # geom_smooth(method = "smooth.spline2", se= F)+
+  stat_function(fun=Gamma_Fun, color="red")+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
@@ -132,7 +194,7 @@ gg4<-ggplot(Plot_Flux, aes(Year_Disturbance, values, shape= Disturbance, colour=
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#00FF33")
 
-# 4.1. Ratio GPP and Reco
+# 4.2. Ratio GPP and Reco
 
 #Subset data
 Plot_Ratio<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("GPP_ER"),]
@@ -141,7 +203,7 @@ Plot_Ratio<- Plot_Ratio[Plot_Ratio$Species %in% c("Douglas pine", "Black spruce"
 gg7<-ggplot(Plot_Ratio,aes(Year_Disturbance, values, shape=Disturbance, colour=mean_Uncert)) +
   geom_point (size=3.5)+
   facet_wrap(~Disturbance, ncol=1, scales="free")+
-  stat_function(fun=fit.mean, color="red") +
+  stat_function(fun=Amiro_Fun, color="red") +
   expand_limits(x = 0, y = 0)+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
   # geom_errorbar(limits_TER, width=0.07, linetype=6)+
@@ -154,9 +216,9 @@ gg7<-ggplot(Plot_Ratio,aes(Year_Disturbance, values, shape=Disturbance, colour=m
 #Export plot
 ggsave(gg7, filename = 'Latex/Figures/All_Sites/Dist_GPP_TER.eps', width = 14, height = 8)
 
-#4 Explain variabilty of the fluxes
+#5 Explain variabilty of the fluxes
 
-#4.1. Anova analysis
+#5.1. Anova analysis
 
 #Subset dataset
 dfAll_Sites$Year_Disturbance<-as.factor(dfAll_Sites$Year_Disturbance)
