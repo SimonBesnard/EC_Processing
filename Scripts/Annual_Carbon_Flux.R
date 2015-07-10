@@ -99,7 +99,6 @@ for (i in seq_along(Sum_Sd_Flux)){
 }
 
 #Combine the flux sites in one dataframe
-Flux_Week
 dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
 
 # Restructure dataframe
@@ -245,7 +244,7 @@ gg1<-ggplot(Plot_Flux, aes(Year_Disturbance, values, colour=mean_Uncert)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#00FF33")
+  scale_colour_gradient(name="Fraction of gap-filled data", low="#FF0000", high = "#00FF33")
 
 # 5.2. Ratio GPP and Reco
 
@@ -261,7 +260,7 @@ gg2<-ggplot(Harvest_GPP_Reco,aes(Year_Disturbance, values, colour=mean_Uncert)) 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(name="Uncertainty", low="#FF0000", high = "#00FF33")
+  scale_colour_gradient(name="Fraction of gap-filled data", low="#FF0000", high = "#00FF33")
 
 #Export plot
 ggsave(gg7, filename = 'Latex/Figures/All_Sites/Dist_GPP_TER.eps', width = 14, height = 8)
