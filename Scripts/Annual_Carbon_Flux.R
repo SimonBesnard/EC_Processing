@@ -67,7 +67,7 @@ for (i in seq_along(Fluxnet_Site)){
   Fluxnet_Site[[i]]$DateTime=as.Date(Fluxnet_Site[[i]]$DateTime)
 }
 
-for (i in seq_along(Fluxnet_Site)){
+for (i in seq_along(Fluxnet_Site)){Flux_Week
 Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Measure_Date[i]),])
 }
 
@@ -99,7 +99,7 @@ for (i in seq_along(Sum_Sd_Flux)){
 }
 
 #Combine the flux sites in one dataframe
-dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
+Flux_Week
 dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
 
 # Restructure dataframe
