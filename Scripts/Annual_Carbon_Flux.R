@@ -67,7 +67,7 @@ for (i in seq_along(Fluxnet_Site)){
   Fluxnet_Site[[i]]$DateTime=as.Date(Fluxnet_Site[[i]]$DateTime)
 }
 
-for (i in seq_along(Fluxnet_Site)){Flux_Week
+for (i in seq_along(Fluxnet_Site)){
 Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Measure_Date[i]),])
 }
 
@@ -99,13 +99,17 @@ for (i in seq_along(Sum_Sd_Flux)){
 }
 
 #Combine the flux sites in one dataframe
-dfAll_Sites<-dfAll_Sites[-c(88),]# the measurements seems to be an outlier
+dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
+dfAll_Sites<-dfAll_Sites[-c(113),]# the measurements seems to be an outlier
+
+# Remove high gap filled fraction
+dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.85,]
 
 # Restructure dataframe
-dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Species, -Ecosytem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
+dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosytem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosytem", "Species")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosytem")]
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
@@ -122,8 +126,8 @@ Cont_GPP<-GPP[GPP$Climate %in% c("Continental"),]
 # 4.1 Gamma function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Cont_GPP)
-f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Cont_GPP, start = list(A=1000, B=0.170, k= -0.00295))
+plotPoints(values ~ Year_Disturbance, data=Harvest_GPP)
+f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Harvest_GPP, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
 plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
 
@@ -132,24 +136,24 @@ fit<- lm(f1(Fire_GPP$Year_Disturbance)~Fire_GPP$values)
 summary(fit)
 
 #Compute function
-Gamma_Harvest <- function(x){449.06327500*(x^0.64511292)*(exp(-0.02233547*x))}
+Gamma_Harvest <- function(x){641.61019397 *(x^0.45871699)*(exp(-0.01829972*x))}
 Gamma_Fire<- function(x){209.52756204 *(x^0.42713337)*(exp(-0.01271747*x))}
 
 # 4.2 Ricker function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Cont_GPP)
-f2= fitModel(values~A*(Year_Disturbance*(exp((k*Year_Disturbance)/2))), data=Temp_GPP, start = list(A=500, k= -0.3))
+plotPoints(values ~ Year_Disturbance, data=Fire_GPP)
+f2= fitModel(values~A*(Year_Disturbance*(exp((k*Year_Disturbance)/2))), data=Fire_GPP, start = list(A=500, k= -0.3))
 coef(f2)
 plotFun(f2(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
 
 #Compute r2
-fit<- lm(f2(Cont_GPP$Year_Disturbance)~Cont_GPP$values)
+fit<- lm(f2(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
 summary(fit)
 
 #Compute function
-Ricker_Harvest<- function(x){205.57449504 *x*(exp(-0.06537864*x/2))}
-Ricker_Fire<- function(x){56.18998882*x*(exp(-0.05806135*x/2))}
+Ricker_Harvest<- function(x){223.55737436 *x*(exp(-0.08043979 *x/2))}
+Ricker_Fire<- function(x){28.40331743*x*(exp(-0.02038462*x/2))}
 
 # 4.3 Second order polymonial function
 
@@ -200,8 +204,8 @@ Harvest_GPP_Reco<-GPP_Reco[GPP_Reco$Disturbance %in% c("Harvest"),]
 Fire_GPP_Reco<-GPP_Reco[GPP_Reco$Disturbance %in% c("Fire"),]
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Fire_GPP_Reco)
-f6= fitModel(values~A*(1-exp(k*Year_Disturbance)), data=Fire_GPP_Reco, start = list(A=1.23, k= -0.224))
+plotPoints(values ~ Year_Disturbance, data=Harvest_GPP_Reco)
+f6= fitModel(values~A*(1-exp(k*Year_Disturbance)), data=Harvest_GPP_Reco, start = list(A=1.23, k= -0.224))
 coef(f6)
 plotFun(f6(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
 
@@ -210,7 +214,7 @@ fit<- lm(f4(Fire_GPP_Reco$Year_Disturbance)~Fire_GPP_Reco$values)
 summary(fit)
 
 #Compute function
-Amiro_Harvest <- function(x){1.2025399 *(1-exp(-0.3644874*x))}
+Amiro_Harvest <- function(x){1.2173626 *(1-exp(-0.5255131*x))}
 Amiro_Fire<- function(x){1.0734594*(1-exp(-0.2010539 *x))}
 
 # 4.5 Exponential function for ratio GPP and Reco
@@ -231,14 +235,14 @@ plot(Expo_Fire, xlim=c(0,100))
 
 #Subset data
 Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP", "sum_TER"),]
-Plot_Flux<- Plot_Flux[Plot_Flux$Disturbance %in% c("Fire"),]
+Plot_Flux<- Plot_Flux[Plot_Flux$Disturbance %in% c("Harvest"),]
 Plot_Flux<- Plot_Flux[!Plot_Flux$values ==0,]
 
 gg1<-ggplot(Plot_Flux, aes(Year_Disturbance, values, colour=mean_Uncert)) +
   geom_point(size=3) +
   facet_grid(Type_Flux~Disturbance, scales = "free")+
-  geom_smooth(method="smooth.spline2", se=F, color="red")+
-  # stat_function(fun=Spline_Harvest, color="red")+
+  # geom_smooth(method="smooth.spline2", se=F, color="red")+
+  stat_function(fun=Gamma_Harvest, color="red")+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
