@@ -50,7 +50,7 @@ library(bootstrap)
 #1. Create a df for all fluxnet sites dataframe
 
 #Open all files
-dir <- file.path(path, 'Fluxnet_Data/Data_4disturbed')
+dir <- file.path(path, 'Fluxnet_Data')
 list <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
 
 #Loop over the list of files
@@ -62,14 +62,17 @@ for(i in seq_along(list)) {
 
 # Remove data before disturbance from the list of dataframe
 Site_Date<-read.csv("Input/Potential_Sites.csv", header = TRUE)
-Site_Date$Measure_Date<- as.Date(Site_Date$Measure_Date)
+Site_Date$Date_Disturbance<- as.Date(Site_Date$Date_Disturbance)
 for (i in seq_along(Fluxnet_Site)){
   Fluxnet_Site[[i]]$DateTime=as.Date(Fluxnet_Site[[i]]$DateTime)
 }
 
 for (i in seq_along(Fluxnet_Site)){
-Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Measure_Date[i]),])
+Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Date_Disturbance[i]),])
 }
+
+# Remove incomplete year in each site
+min(Fluxnet_Site[[70]]$DateTime)
 
 #3. Analyse annual carbon flux
 
@@ -89,11 +92,10 @@ Sum_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
 
 #Add type of ecosystem, type of climate, type of disturbance and year after disturbance for each sites
 for (i in seq_along(Sum_Sd_Flux)){
-  Sum_Sd_Flux[[i]]$Ecosytem<- Site_Date$Ecosystem[i]
+  Sum_Sd_Flux[[i]]$Ecosystem<- Site_Date$Ecosystem[i]
   Sum_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
   Sum_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
-  Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(Site_Date$Measure_Date[i])
-  Sum_Sd_Flux[[i]]$Species<- Site_Date$Species[i]
+  Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(Site_Date$Date_Disturbance[i])
   Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$sum_GPP / Sum_Sd_Flux[[i]]$sum_TER
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
 }
@@ -103,13 +105,13 @@ dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 dfAll_Sites<-dfAll_Sites[-c(113),]# the measurements seems to be an outlier
 
 # Remove high gap filled fraction
-dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.85,]
+dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
 
 # Restructure dataframe
-dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosytem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
+dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosytem")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosystem")]
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
@@ -119,31 +121,31 @@ dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate ==
 #.4.Function fit choice for ecosystem response
 GPP<-dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP"),]
 Harvest_GPP<-GPP[GPP$Disturbance %in% c("Harvest"),]
-Fire_GPP<-GPP[GPP$Disturbance %in% c("Fire"),]
+Fire_GPP<-GPP[GPP$Disturbance %in% c("Wildfire"),]
 Temp_GPP<-GPP[GPP$Climate %in% c("Temperate"),]
 Cont_GPP<-GPP[GPP$Climate %in% c("Continental"),]
 
 # 4.1 Gamma function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Harvest_GPP)
-f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Harvest_GPP, start = list(A=1000, B=0.170, k= -0.00295))
+plotPoints(values ~ Year_Disturbance, data=Fire_GPP)
+f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Fire_GPP, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
 plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
 
 #Compute r2
-fit<- lm(f1(Fire_GPP$Year_Disturbance)~Fire_GPP$values)
+fit<- lm(f1(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
 summary(fit)
 
 #Compute function
-Gamma_Harvest <- function(x){641.61019397 *(x^0.45871699)*(exp(-0.01829972*x))}
-Gamma_Fire<- function(x){209.52756204 *(x^0.42713337)*(exp(-0.01271747*x))}
+Gamma_Harvest <- function(x){495.98872446 *(x^0.40451111)*(exp(-0.01201367*x))}
+Gamma_Fire<- function(x){152.237501652*(x^0.482614951)*(exp(-0.003643999*x))}
 
 # 4.2 Ricker function
 
 # Conpute parameters of the function
 plotPoints(values ~ Year_Disturbance, data=Fire_GPP)
-f2= fitModel(values~A*(Year_Disturbance*(exp((k*Year_Disturbance)/2))), data=Fire_GPP, start = list(A=500, k= -0.3))
+f2= fitModel(values~A*(Year_Disturbance*(exp((k*Year_Disturbance)/2))), data=Harvest_GPP, start = list(A=500, k= -0.3))
 coef(f2)
 plotFun(f2(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
 
@@ -152,8 +154,8 @@ fit<- lm(f2(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
 summary(fit)
 
 #Compute function
-Ricker_Harvest<- function(x){223.55737436 *x*(exp(-0.08043979 *x/2))}
-Ricker_Fire<- function(x){28.40331743*x*(exp(-0.02038462*x/2))}
+Ricker_Harvest<- function(x){124.96522904 *x*(exp(-0.05777507*x/2))}
+Ricker_Fire<- function(x){28.97284194 *x*(exp(-0.02085538*x/2))}
 
 # 4.3 Second order polymonial function
 
@@ -235,14 +237,18 @@ plot(Expo_Fire, xlim=c(0,100))
 
 #Subset data
 Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP", "sum_TER"),]
-Plot_Flux<- Plot_Flux[Plot_Flux$Disturbance %in% c("Harvest"),]
-Plot_Flux<- Plot_Flux[!Plot_Flux$values ==0,]
+Plot_Flux_Harvest<- Plot_Flux[Plot_Flux$Disturbance %in% c("Harvest"),]
+Plot_Flux_Storm<- Plot_Flux[Plot_Flux$Disturbance %in% c("Storm"),]
+Plot_Flux_Fire<- Plot_Flux[Plot_Flux$Disturbance %in% c("Wildfire"),]
 
-gg1<-ggplot(Plot_Flux, aes(Year_Disturbance, values, colour=mean_Uncert)) +
+Plot_Flux_ENF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("ENF"),]
+Plot_Flux_DBF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("DBF"),]
+
+gg1<-ggplot(Plot_Flux_DBF, aes(Year_Disturbance, values, colour=mean_Uncert)) +
   geom_point(size=3) +
-  facet_grid(Type_Flux~Disturbance, scales = "free")+
+  facet_grid(Type_Flux~Ecosystem, scales = "free")+
   # geom_smooth(method="smooth.spline2", se=F, color="red")+
-  stat_function(fun=Gamma_Harvest, color="red")+
+  stat_function(fun=Ricker_Harvest, color="red")+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
