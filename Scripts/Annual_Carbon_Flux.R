@@ -3,27 +3,6 @@
 ## 15.05.2015
 ###################################
 ## Load the necessary packages
-# install.packages('ggplot2')
-# install.packages("scales") 
-# install.packages("lubridate")
-# install.packages("gridExtra")
-# install.packages("REddyProc", repos="http://R-Forge.R-project.org", type="source")
-# install.packages('RNetCDF')
-# install.packages('minpack.lm')
-# install.packages("dplyr")
-# install.packages("testthat")
-# install.packages('gtools')
-# install.packages("FactoMineR")
-# install.packages("leaps")
-# install.packages("gamm4")
-# install.packages("tidyr")
-# install.packages("manipulate")
-# install.packages("fitdistrplus")
-# install.packages("evd")
-# install.packages("flexmix")
-# install.packages("mosaic")
-# install.packages("bootstrap")
-
 library(RNetCDF)
 library (ggplot2)
 library(scales)
@@ -32,20 +11,18 @@ library(gridExtra)
 library(REddyProc)
 library (dplyr)
 library (plyr)
-require(testthat)
 library(gtools)
-library(FactoMineR)
-library (leaps)
 library (RColorBrewer)
 library(gamm4)
 library(tidyr)
 library(manipulate)
 library(MASS)
 library(fitdistrplus)
-library(evd)
-library(flexmix)
 library(mosaic)
-library(bootstrap)
+library (maps)
+library(ggsubplot)
+library (ggmap)
+library(OpenStreetMap)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -240,7 +217,6 @@ Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP", "sum_TER"),]
 Plot_Flux_Harvest<- Plot_Flux[Plot_Flux$Disturbance %in% c("Harvest"),]
 Plot_Flux_Storm<- Plot_Flux[Plot_Flux$Disturbance %in% c("Storm"),]
 Plot_Flux_Fire<- Plot_Flux[Plot_Flux$Disturbance %in% c("Wildfire"),]
-
 Plot_Flux_ENF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("ENF"),]
 Plot_Flux_DBF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("DBF"),]
 
@@ -310,3 +286,66 @@ print(cbind(af,PctExp=afss/sum(afss)*100))
 #Compute performance of the model
 af<-step(fit, direction = c("forward"), steps = 2000)
 summary(af)
+
+
+#7. Spatial map with the flux sites
+
+# Import site information
+Site_Date<-read.csv("Input/Potential_Sites.csv", header = TRUE)
+
+# read shapefile
+wmap <- readOGR(dsn="Input", layer="ne_110m_land")
+
+# convert to dataframe
+wmap_df <- fortify(wmap)
+
+#Transform dataframe
+wmap_robin <- spTransform(wmap, CRS("+proj=goode +a=6370997"))
+wmap_df_robin <- fortify(wmap_robin)
+
+# create a blank ggplot theme
+theme_opts <- list(theme(panel.grid.minor = element_blank(),
+                         panel.grid.major = element_blank(),
+                         panel.background = element_blank(),
+                         plot.background = element_rect(fill="#e6e8ed"),
+                         panel.border = element_blank(),
+                         axis.line = element_blank(),
+                         axis.text.x = element_blank(),
+                         axis.text.y = element_blank(),
+                         axis.ticks = element_blank(),
+                         axis.title.x = element_blank(),
+                         axis.title.y = element_blank(),
+                         plot.title = element_text(size=22)))
+
+# add graticule and bounding box (longlat)
+grat <- readOGR("Input", layer="ne_110m_graticules_15") 
+grat_df <- fortify(grat)
+
+bbox <- readOGR("Input", layer="ne_110m_wgs84_bounding_box") 
+bbox_df<- fortify(bbox)
+
+# graticule (Robin)
+grat_robin <- spTransform(grat, CRS("+proj=goode +a=6370997"))  # reproject graticule
+grat_df_robin <- fortify(grat_robin)
+bbox_robin <- spTransform(bbox, CRS("+proj=goode +a=6370997"))  # reproject bounding box
+bbox_robin_df <- fortify(bbox_robin)
+
+#Fluxnet
+Fluxnet_Site <- SpatialPointsDataFrame(coords=Site_Date[,c("y","x")],data=data.frame(Site_Date),proj4string=CRS(proj="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+Fluxnet_Site <- spTransform(Fluxnet_Site, CRS("+proj=goode +a=6370997"))
+Fluxnet_Site <- as(Fluxnet_Site, "data.frame")
+
+
+#Plot
+ggplot(bbox_robin_df, aes(long,lat, group=group)) + 
+  geom_polygon(fill="white") +
+  geom_polygon(data=wmap_df_robin, aes(long,lat, group=group, fill=hole)) + 
+  geom_path(data=grat_df_robin, aes(long, lat, group=group, fill=NULL), linetype="dashed", color="grey50") +
+  geom_point(data=Fluxnet_Site, aes(x=y.1,y=x.1, group= NULL),  shape=4, color="red", size=3)+
+  labs(title="Fluxnet sites location") + 
+  coord_equal() + 
+  theme_opts +
+  scale_fill_manual(values=c("grey", "white"), guide="none") # change colors & remove legend
+
+
+
