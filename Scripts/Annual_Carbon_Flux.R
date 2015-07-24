@@ -48,9 +48,6 @@ for (i in seq_along(Fluxnet_Site)){
 Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Date_Disturbance[i]),])
 }
 
-# Remove incomplete year in each site
-min(Fluxnet_Site[[70]]$DateTime)
-
 #3. Analyse annual carbon flux
 
 # Compute sum/mean annual +/- sd
@@ -75,20 +72,22 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(Site_Date$Date_Disturbance[i])
   Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$sum_GPP / Sum_Sd_Flux[[i]]$sum_TER
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
+  Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
+  Sum_Sd_Flux[[i]]$Int_Replacement<- Site_Date$Intensity_Replacement[i]
 }
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(113),]# the measurements seems to be an outlier
+dfAll_Sites<-dfAll_Sites[-c(122),]# the measurements seems to be an outlier
 
 # Remove high gap filled fraction
 dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
 
 # Restructure dataframe
-dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID)
+dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID, -Stand_Replacement, -Int_Replacement)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosystem")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement","Int_Replacement","Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosystem")]
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
@@ -97,15 +96,15 @@ dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate ==
 
 #.4.Function fit choice for ecosystem response
 GPP<-dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP"),]
-Harvest_GPP<-GPP[GPP$Disturbance %in% c("Harvest"),]
-Fire_GPP<-GPP[GPP$Disturbance %in% c("Wildfire"),]
-Temp_GPP<-GPP[GPP$Climate %in% c("Temperate"),]
-Cont_GPP<-GPP[GPP$Climate %in% c("Continental"),]
+GPP_High_Dist<-GPP[GPP$Stand_Replacement ==1,]
+GPP_High_Dist<-GPP_High_Dist[GPP_High_Dist$Int_Replacement %in% "High",]
+Harvest_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Harvest"),]
+Fire_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Wildfire"),]
 
 # 4.1 Gamma function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Fire_GPP)
+plotPoints(values ~ Year_Disturbance, data=Harvest_GPP)
 f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Fire_GPP, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
 plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
@@ -121,7 +120,7 @@ Gamma_Fire<- function(x){152.237501652*(x^0.482614951)*(exp(-0.003643999*x))}
 # 4.2 Ricker function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Fire_GPP)
+plotPoints(values ~ Year_Disturbance, data=Harvest_GPP)
 f2= fitModel(values~A*(Year_Disturbance*(exp((k*Year_Disturbance)/2))), data=Harvest_GPP, start = list(A=500, k= -0.3))
 coef(f2)
 plotFun(f2(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
@@ -131,8 +130,8 @@ fit<- lm(f2(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
 summary(fit)
 
 #Compute function
-Ricker_Harvest<- function(x){124.96522904 *x*(exp(-0.05777507*x/2))}
-Ricker_Fire<- function(x){28.97284194 *x*(exp(-0.02085538*x/2))}
+Ricker_Harvest<- function(x){99.38607842*x*(exp(-0.04625329*x/2))}
+Ricker_Fire<- function(x){29.91918974*x*(exp(-0.03419415*x/2))}
 
 # 4.3 Second order polymonial function
 
@@ -220,11 +219,11 @@ Plot_Flux_Fire<- Plot_Flux[Plot_Flux$Disturbance %in% c("Wildfire"),]
 Plot_Flux_ENF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("ENF"),]
 Plot_Flux_DBF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("DBF"),]
 
-gg1<-ggplot(Plot_Flux_DBF, aes(Year_Disturbance, values, colour=mean_Uncert)) +
+gg1<-ggplot(Plot_Flux_Fire, aes(Year_Disturbance, values, colour=mean_Uncert)) +
   geom_point(size=3) +
-  facet_grid(Type_Flux~Ecosystem, scales = "free")+
+  facet_grid(Type_Flux~Disturbance, scales = "free")+
   # geom_smooth(method="smooth.spline2", se=F, color="red")+
-  stat_function(fun=Ricker_Harvest, color="red")+
+  stat_function(fun=Ricker_Fire, color="red")+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
@@ -300,14 +299,14 @@ wmap <- readOGR(dsn="Input", layer="ne_110m_land")
 wmap_df <- fortify(wmap)
 
 #Transform dataframe
-wmap_robin <- spTransform(wmap, CRS("+proj=goode +a=6370997"))
-wmap_df_robin <- fortify(wmap_robin)
+wmap_robin <- spTransform(wmap, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))
+wmap_df_robin <- as(wmap_robin, "data.frame")
 
 # create a blank ggplot theme
 theme_opts <- list(theme(panel.grid.minor = element_blank(),
                          panel.grid.major = element_blank(),
                          panel.background = element_blank(),
-                         plot.background = element_rect(fill="#e6e8ed"),
+                         plot.background = element_rect(fill=NULL),
                          panel.border = element_blank(),
                          axis.line = element_blank(),
                          axis.text.x = element_blank(),
@@ -324,17 +323,16 @@ grat_df <- fortify(grat)
 bbox <- readOGR("Input", layer="ne_110m_wgs84_bounding_box") 
 bbox_df<- fortify(bbox)
 
-# graticule (Robin)
-grat_robin <- spTransform(grat, CRS("+proj=goode +a=6370997"))  # reproject graticule
+# graticule and BBox (Robin)
+grat_robin <- spTransform(grat, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))  # reproject graticule
 grat_df_robin <- fortify(grat_robin)
-bbox_robin <- spTransform(bbox, CRS("+proj=goode +a=6370997"))  # reproject bounding box
+bbox_robin <- spTransform(bbox, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))  # reproject bounding box
 bbox_robin_df <- fortify(bbox_robin)
 
 #Fluxnet
 Fluxnet_Site <- SpatialPointsDataFrame(coords=Site_Date[,c("y","x")],data=data.frame(Site_Date),proj4string=CRS(proj="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
-Fluxnet_Site <- spTransform(Fluxnet_Site, CRS("+proj=goode +a=6370997"))
+Fluxnet_Site <- spTransform(Fluxnet_Site, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))
 Fluxnet_Site <- as(Fluxnet_Site, "data.frame")
-
 
 #Plot
 ggplot(bbox_robin_df, aes(long,lat, group=group)) + 
@@ -346,6 +344,4 @@ ggplot(bbox_robin_df, aes(long,lat, group=group)) +
   coord_equal() + 
   theme_opts +
   scale_fill_manual(values=c("grey", "white"), guide="none") # change colors & remove legend
-
-
 
