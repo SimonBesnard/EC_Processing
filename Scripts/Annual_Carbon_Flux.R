@@ -74,20 +74,26 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
   Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
   Sum_Sd_Flux[[i]]$Int_Replacement<- Site_Date$Intensity_Replacement[i]
+  Sum_Sd_Flux[[i]]$Age_Min<- Site_Date$Age_Forest_Min[i]
+  Sum_Sd_Flux[[i]]$Age_Max<- Site_Date$Age_Forest_Max[i]
 }
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 dfAll_Sites<-dfAll_Sites[-c(122),]# the measurements seems to be an outlier
 
+# Remove years missing in each flux site
+NA_Value <- apply(dfAll_Sites, 1, function(x){any(is.na(x))})
+dfAll_Sites<- dfAll_Sites[!NA_Value,]
+
 # Remove high gap filled fraction
 dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
 
 # Restructure dataframe
-dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID, -Stand_Replacement, -Int_Replacement)
+dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Age_Min, -Age_Max, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID, -Stand_Replacement, -Int_Replacement)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement","Int_Replacement","Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Disturbance", "Climate", "Ecosystem")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Age_Min", "Age_Max", "Disturbance", "Climate", "Ecosystem")]
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
@@ -96,8 +102,7 @@ dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate ==
 
 #.4.Function fit choice for ecosystem response
 GPP<-dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP"),]
-GPP_High_Dist<-GPP[GPP$Stand_Replacement ==1,]
-GPP_High_Dist<-GPP_High_Dist[GPP_High_Dist$Int_Replacement %in% "High",]
+GPP_High_Dist<-GPP[GPP$Int_Replacement %in% "High",]
 Harvest_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Harvest"),]
 Fire_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Wildfire"),]
 
@@ -107,8 +112,10 @@ Fire_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Wildfire"),]
 plotPoints(values ~ Year_Disturbance, data=Harvest_GPP)
 f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Fire_GPP, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
-plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
+plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance,
+        lim=range(0,150), add=T)
 
+Sum_Sd_Flux[[i]]$Age_Min<- Site_Date$Age_Forest_Min[i]
 #Compute r2
 fit<- lm(f1(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
 summary(fit)
@@ -213,6 +220,8 @@ plot(Expo_Fire, xlim=c(0,100))
 
 #Subset data
 Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP", "sum_TER"),]
+Plot_Flux<-Plot_Flux[Plot_Flux$Stand_Replacement ==1,]
+Plot_Flux<-Plot_Flux[Plot_Flux$Int_Replacement %in% "High",]
 Plot_Flux_Harvest<- Plot_Flux[Plot_Flux$Disturbance %in% c("Harvest"),]
 Plot_Flux_Storm<- Plot_Flux[Plot_Flux$Disturbance %in% c("Storm"),]
 Plot_Flux_Fire<- Plot_Flux[Plot_Flux$Disturbance %in% c("Wildfire"),]
@@ -229,7 +238,7 @@ gg1<-ggplot(Plot_Flux_Fire, aes(Year_Disturbance, values, colour=mean_Uncert)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(name="Fraction of gap-filled data", low="#FF0000", high = "#00FF33")
+  scale_colour_gradient(name="Fraction of gap-filled data", low="#FF0000", high = "#00FF33", limits=c(0,1))
 
 # 5.2. Ratio GPP and Reco
 
