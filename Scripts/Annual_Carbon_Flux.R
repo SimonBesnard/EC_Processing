@@ -110,12 +110,12 @@ Fire_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Wildfire"),]
 
 # Conpute parameters of the function
 plotPoints(values ~ Year_Disturbance, data=Harvest_GPP)
-f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Fire_GPP, start = list(A=1000, B=0.170, k= -0.00295))
+f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Harvest_GPP, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
-plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance,
-        lim=range(0,150), add=T)
+plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,150), add=T)
 
 Sum_Sd_Flux[[i]]$Age_Min<- Site_Date$Age_Forest_Min[i]
+
 #Compute r2
 fit<- lm(f1(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
 summary(fit)
