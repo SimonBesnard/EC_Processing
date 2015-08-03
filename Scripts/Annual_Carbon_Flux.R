@@ -70,6 +70,7 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
   Sum_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
   Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(Site_Date$Date_Disturbance[i])
+  Sum_Sd_Flux[[i]]$Stand_Age<- Sum_Sd_Flux[[i]]$year- year(as.Date(Site_Date$Plantation_Date[i]))
   Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$sum_GPP / Sum_Sd_Flux[[i]]$sum_TER
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
   Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
@@ -90,10 +91,10 @@ dfAll_Sites<- dfAll_Sites[!NA_Value,]
 dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
 
 # Restructure dataframe
-dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Age_Min, -Age_Max, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Site_ID, -Stand_Replacement, -Int_Replacement)
+dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Age_Min", "Age_Max", "Disturbance", "Climate", "Ecosystem")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "mean_Uncert", "Year_Disturbance", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
@@ -228,11 +229,12 @@ Plot_Flux_Fire<- Plot_Flux[Plot_Flux$Disturbance %in% c("Wildfire"),]
 Plot_Flux_ENF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("ENF"),]
 Plot_Flux_DBF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("DBF"),]
 
-gg1<-ggplot(Plot_Flux_Fire, aes(Year_Disturbance, values, colour=mean_Uncert)) +
+gg1<-ggplot(Plot_Flux, aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(size=3) +
-  facet_grid(Type_Flux~Disturbance, scales = "free")+
+  facet_wrap(~Type_Flux, scales = "free", ncol=1)+
+  # facet_grid(Type_Flux~Disturbance, scales = "free")+
   # geom_smooth(method="smooth.spline2", se=F, color="red")+
-  stat_function(fun=Ricker_Fire, color="red")+
+  # stat_function(fun=Ricker_Fire, color="red")+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
   xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
