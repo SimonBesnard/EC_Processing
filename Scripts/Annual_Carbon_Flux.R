@@ -23,6 +23,7 @@ library (maps)
 library(ggsubplot)
 library (ggmap)
 library(OpenStreetMap)
+library(devtools)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -37,15 +38,31 @@ for(i in seq_along(list)) {
                                           FileName.s=list[i], NcPackage.s = 'RNetCDF')
 }
 
-# Remove data before disturbance from the list of dataframe
+#2. Compute dataframe for time since disturbance or stand age analysis
+#Open csv file with flux site metadata
 Site_Date<-read.csv("Input/Potential_Sites.csv", header = TRUE)
-Site_Date$Date_Disturbance<- as.Date(Site_Date$Date_Disturbance)
+
+# Convert Datetime into a Date object
 for (i in seq_along(Fluxnet_Site)){
   Fluxnet_Site[[i]]$DateTime=as.Date(Fluxnet_Site[[i]]$DateTime)
 }
 
+# 2.1. Option 1: Remove data before disturbance from the list of dataframe
+# Convert date of disturbance into a date object
+#Site_Date$Date_Disturbance<- as.Date(Site_Date$Date_Disturbance)
+
+#Remove data before disturbance
+# for (i in seq_along(Fluxnet_Site)){
+# Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Date_Disturbance[i]),])
+# }
+
+# 2.2. Option 2: Remove data before plantation from the list of dataframe
+# Convert date of plantation into a date object
+Site_Date$Plantation_Date<- as.Date(Site_Date$Plantation_Date)
+
+# Remove data before plantation
 for (i in seq_along(Fluxnet_Site)){
-Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Date_Disturbance[i]),])
+  Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Plantation_Date[i]),])
 }
 
 #3. Analyse annual carbon flux
@@ -69,7 +86,7 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Ecosystem<- Site_Date$Ecosystem[i]
   Sum_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
   Sum_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
-  Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(Site_Date$Date_Disturbance[i])
+  Sum_Sd_Flux[[i]]$Year_Disturbance<- Sum_Sd_Flux[[i]]$year- year(as.Date(Site_Date$Date_Disturbance[i]))
   Sum_Sd_Flux[[i]]$Stand_Age<- Sum_Sd_Flux[[i]]$year- year(as.Date(Site_Date$Plantation_Date[i]))
   Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$sum_GPP / Sum_Sd_Flux[[i]]$sum_TER
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
@@ -79,16 +96,19 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Age_Max<- Site_Date$Age_Forest_Max[i]
 }
 
+#Remove outlier sites (US-Bn, US-Blo, CZ-Bk1)
+Sum_Sd_Flux<- Sum_Sd_Flux[-c(28,49,50,51,52)]
+
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(122),]# the measurements seems to be an outlier
+dfAll_Sites<-dfAll_Sites[-c(127),]# the measurements seems to be an outlier
 
 # Remove years missing in each flux site
 NA_Value <- apply(dfAll_Sites, 1, function(x){any(is.na(x))})
 dfAll_Sites<- dfAll_Sites[!NA_Value,]
 
 # Remove high gap filled fraction
-dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
+dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.8,]
 
 # Restructure dataframe
 dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -year, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement)
@@ -110,20 +130,19 @@ Fire_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Wildfire"),]
 # 4.1 Gamma function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Harvest_GPP)
-f1= fitModel(values~A*(Year_Disturbance^B)*(exp(k*Year_Disturbance)), data=Harvest_GPP, start = list(A=1000, B=0.170, k= -0.00295))
+plotPoints(values ~ Stand_Age, data=GPP)
+f1= fitModel(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=GPP, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
 plotFun(f1(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,150), add=T)
 
-Sum_Sd_Flux[[i]]$Age_Min<- Site_Date$Age_Forest_Min[i]
-
 #Compute r2
-fit<- lm(f1(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
+fit<- lm(f1(GPP$Stand_Age)~GPP$values)
 summary(fit)
 
 #Compute function
 Gamma_Harvest <- function(x){495.98872446 *(x^0.40451111)*(exp(-0.01201367*x))}
 Gamma_Fire<- function(x){152.237501652*(x^0.482614951)*(exp(-0.003643999*x))}
+Gamma_Age<-function(x){338.437769386*(x^0.463645220)*(exp(-0.009632859*x))}
 
 # 4.2 Ricker function
 
@@ -221,22 +240,21 @@ plot(Expo_Fire, xlim=c(0,100))
 
 #Subset data
 Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP", "sum_TER"),]
-Plot_Flux<-Plot_Flux[Plot_Flux$Stand_Replacement ==1,]
-Plot_Flux<-Plot_Flux[Plot_Flux$Int_Replacement %in% "High",]
 Plot_Flux_Harvest<- Plot_Flux[Plot_Flux$Disturbance %in% c("Harvest"),]
-Plot_Flux_Storm<- Plot_Flux[Plot_Flux$Disturbance %in% c("Storm"),]
 Plot_Flux_Fire<- Plot_Flux[Plot_Flux$Disturbance %in% c("Wildfire"),]
-Plot_Flux_ENF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("ENF"),]
-Plot_Flux_DBF<- Plot_Flux_Harvest[Plot_Flux_Harvest$Ecosystem %in% c("DBF"),]
+Plot_Flux_Ins<- Plot_Flux[Plot_Flux$Disturbance %in% c("Insect_Outbreaks"),]
+Plot_Flux_Storm<- Plot_Flux[Plot_Flux$Disturbance %in% c("Storm"),]
+Plot_Flux_Thin<- Plot_Flux[Plot_Flux$Disturbance %in% c("Thinning"),]
 
-gg1<-ggplot(Plot_Flux, aes(Stand_Age, values, colour=mean_Uncert)) +
+#Plot data
+gg1<-ggplot(Plot_Flux_Storm, aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(size=3) +
-  facet_wrap(~Type_Flux, scales = "free", ncol=1)+
-  # facet_grid(Type_Flux~Disturbance, scales = "free")+
+  facet_wrap(~Type_Flux, ncol=1)+
+  facet_grid(Type_Flux~Disturbance, scales = "free")+
   # geom_smooth(method="smooth.spline2", se=F, color="red")+
-  # stat_function(fun=Ricker_Fire, color="red")+
+  # stat_function(fun=Gamma_Age, color="red")+
   # geom_errorbar(limits_NEE, width=0.07, linetype=6)+
-  xlab("Year since Disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
+  xlab("Stand Age") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
@@ -245,10 +263,13 @@ gg1<-ggplot(Plot_Flux, aes(Stand_Age, values, colour=mean_Uncert)) +
 # 5.2. Ratio GPP and Reco
 
 #Subset data
-gg2<-ggplot(Harvest_GPP_Reco,aes(Year_Disturbance, values, colour=mean_Uncert)) +
-  geom_point (size=3.5)+
-  facet_wrap(~Disturbance, ncol=1, scales="free")+
-  stat_function(fun=Amiro_Harvest, color="red") +
+Plot_Flux_Ratio<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("GPP_ER"),]
+
+#Plot data
+gg2<-ggplot(Plot_Flux_Ratio,aes(Stand_Age, values, colour=mean_Uncert)) +
+  geom_point (size=3)+
+  facet_wrap(~Disturbance, ncol=1)+
+  # stat_function(fun=Amiro_Harvest, color="red") +
   expand_limits(x = 0, y = 0)+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
   # geom_errorbar(limits_TER, width=0.07, linetype=6)+
@@ -256,7 +277,7 @@ gg2<-ggplot(Harvest_GPP_Reco,aes(Year_Disturbance, values, colour=mean_Uncert)) 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(name="Fraction of gap-filled data", low="#FF0000", high = "#00FF33")
+  scale_colour_gradient(name="Fraction of gap-filled data", low="#FF0000", high = "#00FF33", limits=c(0,1))
 
 #Export plot
 ggsave(gg7, filename = 'Latex/Figures/All_Sites/Dist_GPP_TER.eps', width = 14, height = 8)
