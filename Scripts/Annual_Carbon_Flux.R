@@ -101,8 +101,8 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Annual_Preci<-Sum_Sd_Flux[[i]]$Annual_Pre_Day + Sum_Sd_Flux[[i]]$Annual_Pre_Night
 }
 
-#Remove outlier sites (US-Bn, US-Blo, CZ-Bk1, IT-Sro, US-Me1, US-DK3)
-Sum_Sd_Flux<- Sum_Sd_Flux[-c(28,49,50,51,52,53,61)]
+#Remove outlier sites (US-Blo, CZ-Bk1, US-DK3, IT_Ro1, IT-Ro2, US_Bns, US-NC2)
+Sum_Sd_Flux<- Sum_Sd_Flux[-c(28,36,37,49,50,51,53,63)]
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
@@ -127,196 +127,217 @@ dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate ==
                            ifelse((dfAll_Sites$Climate =="Dfb" | dfAll_Sites$Climate =="Dfc" | dfAll_Sites$Climate =="Dsc"), "Continental", NA)))
 
 #.4.Function fit choice for ecosystem response
-GPP<-dfAll_Sites[dfAll_Sites$Type_Flux %in% c("GPP"),]
-GPP_High_Dist<-GPP[GPP$Int_Replacement %in% "High",]
-Harvest_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Harvest"),]
-Fire_GPP<-GPP_High_Dist[GPP_High_Dist$Disturbance %in% c("Wildfire"),]
+
+#Subset dataframe for fitting process 
+Flux_High<-dfAll_Sites[dfAll_Sites$Int_Replacement %in% c("High"),]
+GPP_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
+Reco_High<-Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
+GPP_High_Harvest<-GPP_High[GPP_High$Disturbance %in% c("Harvest"),]
+Reco_High_Harvest<-Reco_High[Reco_High$Disturbance %in% c("Harvest"),]
+GPP_High_Fire<-GPP_High[GPP_High$Disturbance %in% c("Wildfire"),]
+Reco_High_Fire<-Reco_High[Reco_High$Disturbance %in% c("Wildfire"),]
+Ratio_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
+Ratio_High_Harvest<-Ratio_High[Ratio_High$Disturbance %in% c("Harvest"),]
+Ratio_High_Fire<-Ratio_High[Ratio_High$Disturbance %in% c("Wildfire"),]
 
 # 4.1 Gamma function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=Plot_Flux_Fire)
-f1= fitModel(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=Plot_Flux_Fire, start = list(A=1000, B=0.170, k= -0.00295))
+plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
+f1= fitModel(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=GPP_High_Fire, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
 plotFun(f1(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,200), add=T)
 
 #Compute r2
-fit<- lm(f1(Flux_Ratio$Stand_Age)~Flux_Ratio$values)
+fit<- lm(f1(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
 summary(fit)
-
-#Compute function
-Gamma_Harvest <- function(x){495.98872446 *(x^0.40451111)*(exp(-0.01201367*x))}
-Gamma_Fire<- function(x){152.237501652*(x^0.482614951)*(exp(-0.003643999*x))}
 
 # 4.2 Ricker function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=Flux_Ratio)
-f2= fitModel(values~A*(Stand_Age*(exp((k*Stand_Age)/2))), data=Flux_Ratio, start = list(A=500, k= -0.3))
+plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
+f2= fitModel(values~A*(Stand_Age*(exp((k*Stand_Age)/2))), data=GPP_High_Fire, start = list(A=500, k= -0.3))
 coef(f2)
 plotFun(f2(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
 #Compute r2
-fit<- lm(f2(Harvest_GPP$Year_Disturbance)~Harvest_GPP$values)
+fit<- lm(f2(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
 summary(fit)
-
-#Compute function
-Ricker_Harvest<- function(x){99.38607842*x*(exp(-0.04625329*x/2))}
-Ricker_Fire<- function(x){29.91918974*x*(exp(-0.03419415*x/2))}
 
 # 4.3 Second order polymonial function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Fire_GPP)
-f3= fitModel(values~A*Year_Disturbance^2+B*Year_Disturbance+C, data=Fire_GPP)
+plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
+f3= fitModel(values~A*Stand_Age^2+B*Stand_Age+C, data=GPP_High_Fire)
 coef(f3)
-plotFun(f3(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
+plotFun(f3(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
 #Compute r2
-fit<- lm(f3(Fire_GPP$Year_Disturbance)~Fire_GPP$values)
+fit<- lm(f3(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
 summary(fit)
-
-#Compute function
-Poly2_Harvest<- function(x){-0.5958727*x^2 + 56.0966845*x + 783.6275529}
-Poly2_Fire<- function(x){-0.08703708*x^2 + 8.26272839*x + 409.20396672}
 
 # 4.4 Third order polymonial function
 
 # Conpute parameters of the function
-plotPoints(values ~ Year_Disturbance, data=Fire_GPP)
-f4= fitModel(values~A*Year_Disturbance^3+B*Year_Disturbance^2+C*Year_Disturbance+D, data=Fire_GPP)
+plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
+f4= fitModel(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=GPP_High_Fire)
 coef(f4)
-plotFun(f4(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
+plotFun(f4(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
 #Compute r2
-fit<- lm(f4(Fire_GPP$Year_Disturbance)~Fire_GPP$values)
+fit<- lm(f4(GPP_High_Fire$Stand_Age)~GPP_High_Fire$Stand_Age)
 summary(fit)
-
-#Compute function
-Poly3_Harvest<- function(x){0.009480182*x^3 -2.015796171*x^2 + 108.741923329*x + 523.052930475}
-Poly3_Fire<- function(x){0.004709568*x^3 -0.657932473*x^2 + 24.532387387*x + 321.946134971}
 
 # 4.5 Amiro function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=Flux_Ratio)
-f6= fitModel(values~A*(1-exp(k*Stand_Age)), data=Flux_Ratio, start = list(A=1.23, k= -0.224))
-coef(f6)
-plotFun(f6(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
+plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
+f5= fitModel(values~A*(1-exp(k*Stand_Age)), data=GPP_High_Fire, start = list(A=1500, k= -0.224))
+coef(f5)
+plotFun(f5(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
 #Compute r2
-fit<- lm(f4(Fire_GPP_Reco$Year_Disturbance)~Fire_GPP_Reco$values)
+fit<- lm(f5(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
 summary(fit)
-
-#Compute function
-Amiro_Harvest <- function(x){1.2173626 *(1-exp(-0.5255131*x))}
-Amiro_Fire<- function(x){1.0734594*(1-exp(-0.2010539 *x))}
-
-# 4.6 Exponential function
-
-# Conpute parameters of the function
-f5= fitModel(values~A+B*exp(k*Year_Disturbance), data=Fire_GPP_Reco, start = list(A=5, B=-5, k=-0.005))
-coef(f5)
-plotFun(f5(Year_Disturbance)~Year_Disturbance, Year_Disturbance.lim=range(0,120), add=T)
-
-#Compute function
-Expo_Harvest <- function(x){1.23+exp(-0.224*x)}
-Expo_Fire<- function(x){20.730+9.24*exp(1*x)}
-plot(Expo_Fire, xlim=c(0,100))
 
 # 5. Plot ecosystem response with fit function
 
-# 5.1 Partition flux data per variable
+# 5.1 Annual carbon flux
 
-#Subset data
-Plot_Flux<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("GPP", "Respiration"),]
-Plot_Flux_Harvest<- Plot_Flux[Plot_Flux$Disturbance %in% c("Harvest"),]
-Plot_Flux_Fire<- Plot_Flux[Plot_Flux$Disturbance %in% c("Wildfire"),]
+#Compute fit function with the best fit
+Harvest_GPP_Fun<-function(x){-0.4392582*x^2 + 48.6588570*x + 260.8064506}
+Harvest_Reco_Fun<-function(x){-0.2554387*x^2 +26.4671995*x + 604.9361162}
+Fire_GPP_Fun<- function(x){13.83017087*(x^1.40517046)*(exp(-0.02274242*x))}
+Fire_Reco_Fun<- function(x){39.82891365*x*(exp(-0.03179599*x/2))}
 
 #Plot data
-#Harvest
-gg1<-ggplot(Plot_Flux_Harvest, aes(Stand_Age, values, colour=mean_Uncert)) +
+#GPP Harvest
+gg1<-ggplot(GPP_High_Harvest, aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
   scale_size(range = c(3, 6)) +
-  facet_wrap(~Type_Flux, ncol=1)+
-  facet_grid(Type_Flux~Disturbance)+
-  stat_function(fun=Gamma_Flux_Harvest, color="red")+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  stat_function(fun=Harvest_GPP_Fun, color="red")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.85,1))+
-  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")
+  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
+  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
+  ylim(0,3000)
 
-#Wildfire
-gg2<-ggplot(Plot_Flux_Fire, aes(Stand_Age, values, colour=mean_Uncert)) +
+print(gg1)
+
+#Reco Harvest
+gg2<-ggplot(Reco_High_Harvest, aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
-  scale_size(range = c(3,8 )) +
-  facet_wrap(~Type_Flux, ncol=1)+
-  facet_grid(Type_Flux~Disturbance)+
-  stat_function(fun=Gamma_Flux_Fire, color="red")+
+  scale_size(range = c(3, 6)) +
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  stat_function(fun=Harvest_Reco_Fun, color="red")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.85,1))+
-  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")
+  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
+  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
+  ylim(0,3000)
+
+print(gg2)
+
+#GPP Wildfire
+gg3<-ggplot(GPP_High_Fire, aes(Stand_Age, values, colour=mean_Uncert)) +
+  geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
+  scale_size(range = c(3, 8)) +
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  stat_function(fun=Fire_GPP_Fun, color="red")+
+  xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
+  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
+  ylim(0,3000)
+
+print(gg3)
+
+#Reco Wildfire
+gg4<-ggplot(Reco_High_Fire, aes(Stand_Age, values, colour=mean_Uncert)) +
+  geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
+  scale_size(range = c(3, 8)) +
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  stat_function(fun=Fire_Reco_Fun, color="red")+
+  xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
+  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
+  ylim(0,3000)
+
+print(gg4)
 
 # 5.2. Ratio GPP and Reco
 
-#Subset data
-Flux_Ratio<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("GPP_ER"),]
-Flux_Ratio<- Flux_Ratio[Flux_Ratio$Int_Replacement %in% c("High"),]
-Flux_Ratio_Harvest<- Flux_Ratio[Flux_Ratio$Disturbance %in% c("Harvest"),]
-Flux_Ratio_Wildfire<- Flux_Ratio[Flux_Ratio$Disturbance %in% c("Wildfire"),]
+#Compute fit function with the best fit
+Harvest_Ratio_Fun<-function(x){0.396598614*(x^0.387995395)*(exp(-0.007407526*x))}
+Fire_Ratio_Fun<-function(x){0.194575390*(x^0.537502454)*(exp(-0.006993452*x))}
 
 #Plot data
 #Harvest
-gg3<-ggplot(Flux_Ratio_Harvest,aes(Stand_Age, values, colour=mean_Uncert)) +
+gg5<-ggplot(Ratio_High_Harvest,aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
   scale_size(range = c(3, 6)) +
-  facet_wrap(~Disturbance, ncol=1)+
-  stat_function(fun=Gamma_ratio_Harvest, color="red") +
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  stat_function(fun=Harvest_Ratio_Fun, color="red") +
   expand_limits(x = 0, y = 0)+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
   xlab("Year since disturbance") + ylab("GPP/Reco")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.85,1))+
-  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")
+  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
+  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
+  ylim(0,2.5)
+
+print(gg5)
 
 #Wildfire
-gg4<-ggplot(Flux_Ratio_Wildfire,aes(Stand_Age, values, colour=mean_Uncert)) +
+gg6<-ggplot(Ratio_High_Fire,aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
   scale_size(range = c(3, 8)) +
-  facet_wrap(~Disturbance, ncol=1)+
-  stat_function(fun=Gamma_ratio_Fire, color="red") +
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  stat_function(fun=Fire_Ratio_Fun, color="red") +
   expand_limits(x = 0, y = 0)+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
   xlab("Year since disturbance") + ylab("GPP/Reco")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.85,1))+
-  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")
+  scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
+  labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
+  ylim(0,2.5)
 
-#Plot flux and ratio together
+print(gg6)
+
+#5.3.Plot carbon flux and GPP/Reco ratio together
 gA <- ggplotGrob(gg1)
-gB <- ggplotGrob(gg2)
-gC <- ggplotGrob(gg3)
+gB <- ggplotGrob(gg3)
+gC <- ggplotGrob(gg2)
 gD <- ggplotGrob(gg4)
+gE <- ggplotGrob(gg5)
+gF <- ggplotGrob(gg6)
 
-maxWidth = grid::unit.pmax(gA$widths[1:2], gB$widths[1:2], gC$widths[1:2], gD$widths[1:2])
+maxWidth = grid::unit.pmax(gA$widths[1:2], gB$widths[1:2], gC$widths[1:2], gD$widths[1:2], gE$widths[1:2], gF$widths[1:2])
 gA$widths[1:2] <- as.list(maxWidth)
 gB$widths[1:2] <- as.list(maxWidth)
 gC$widths[1:2] <- as.list(maxWidth)
 gD$widths[1:2] <- as.list(maxWidth)
+gE$widths[1:2] <- as.list(maxWidth)
+gF$widths[1:2] <- as.list(maxWidth)
 
-gg5 <- arrangeGrob(
-  gA, gC, gB, gD, nrow = 2, heights = c(0.5, 0.5))
+gg7 <- arrangeGrob(
+  gA,gB,gC,gD,gE,gF, nrow = 3, heights = c(0.5, 0.5))
 
-print(gg5)
+print(gg7)
 
 #6 Explain variabilty of the fluxes
 
