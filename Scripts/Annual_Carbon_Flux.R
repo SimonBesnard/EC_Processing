@@ -315,7 +315,7 @@ Fire_Ratio_Fun<-function(x){1.187271e-06*x^3 -3.611638e-04*x^2 + 3.212131e-02*x+
 gg5<-ggplot(Ratio_High_Harvest,aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
   scale_size(range = c(3, 6)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  facet_wrap(~Disturbance, scales="free_x")+
   stat_function(fun=Harvest_Ratio_Fun, color="red") +
   expand_limits(x = 0, y = 0)+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
@@ -333,7 +333,7 @@ print(gg5)
 gg6<-ggplot(Ratio_High_Fire,aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
   scale_size(range = c(3, 8)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  facet_wrap(~Disturbance, scales="free_x")+
   stat_function(fun=Fire_Ratio_Fun, color="red") +
   expand_limits(x = 0, y = 0)+
   geom_hline(yintercept=1, linetype=2, colour="grey", size=0.7)+
@@ -365,7 +365,6 @@ gF$widths[1:2] <- as.list(maxWidth)
 
 gg7 <- arrangeGrob(
   gA,gB,gC,gD,gE,gF, nrow = 3, heights = c(0.5, 0.5))
-
 print(gg7)
 
 #6 Explain variabilty of the fluxes
@@ -404,21 +403,50 @@ print(cbind(af,PctExp=afss/sum(afss)*100))
 af<-step(fit, direction = c("forward"), steps = 2000)
 summary(af)
 
-
 #7. Spatial map with the flux sites
 
 # Import site information
-Site_Date<-read.csv("Input/Potential_Sites.csv", header = TRUE)
+Site_Info<-read.csv("Input/Potential_Sites.csv", header = TRUE)
 
-# read shapefile
-wmap <- readOGR(dsn="Input", layer="ne_110m_land")
+#7.1 Land shapefile
 
-# convert to dataframe
-wmap_df <- fortify(wmap)
+# read land shapefile
+wmap <- readOGR(dsn="Input/Flux_Site_Map", layer="ne_110m_land")
 
-#Transform dataframe
-wmap_robin <- spTransform(wmap, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))
-wmap_df_robin <- as(wmap_robin, "data.frame")
+#Change CRS
+wmap_robinson <- spTransform(wmap, CRS("+proj=wintri"))
+
+# convert Spdf to a dataframe
+wmap_robinson_df <- fortify(wmap_robinson)
+
+# 7.2 Graticule and bounding box (longlat)
+
+#Read shapefile
+grat <- readOGR("Input/Flux_Site_Map", layer="ne_110m_graticules_15") 
+
+#Change CRS
+grat_robinson <- spTransform(grat, CRS("+proj=wintri"))
+
+# convert Spdf to a dataframe
+grat_robinson_df <- fortify(grat_robinson)
+
+# 7.3 Bouding box
+
+#Read shapefile
+bbox <- readOGR("Input/Flux_Site_Map", layer="ne_110m_wgs84_bounding_box")
+
+#Change CRS
+bbox_robinson <- spTransform(bbox, CRS("+proj=wintri"))
+
+# convert Spdf to a dataframe
+bbox_robinson_df <- fortify(bbox_robinson)
+
+# 7.4. Import Fluxnet information
+Site <- SpatialPointsDataFrame(coords=Site_Date[,c("y","x")],data=data.frame(Site_Info),proj4string=CRS(proj="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+Site_Robinson <- spTransform(Site, CRS("+proj=wintri"))
+Site_Robinson_df <- as(Site_Robinson, "data.frame")
+
+# 7.5 Plot fluxnet site
 
 # create a blank ggplot theme
 theme_opts <- list(theme(panel.grid.minor = element_blank(),
@@ -434,32 +462,14 @@ theme_opts <- list(theme(panel.grid.minor = element_blank(),
                          axis.title.y = element_blank(),
                          plot.title = element_text(size=22)))
 
-# add graticule and bounding box (longlat)
-grat <- readOGR("Input", layer="ne_110m_graticules_15") 
-grat_df <- fortify(grat)
 
-bbox <- readOGR("Input", layer="ne_110m_wgs84_bounding_box") 
-bbox_df<- fortify(bbox)
-
-# graticule and BBox (Robin)
-grat_robin <- spTransform(grat, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))  # reproject graticule
-grat_df_robin <- fortify(grat_robin)
-bbox_robin <- spTransform(bbox, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))  # reproject bounding box
-bbox_robin_df <- fortify(bbox_robin)
-
-#Fluxnet
-Fluxnet_Site <- SpatialPointsDataFrame(coords=Site_Date[,c("y","x")],data=data.frame(Site_Date),proj4string=CRS(proj="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
-Fluxnet_Site <- spTransform(Fluxnet_Site, CRS("+proj=igh +ellps=sphere +towgs84=0,0,0 +lon_0=100w +x_0=-11119487.43"))
-Fluxnet_Site <- as(Fluxnet_Site, "data.frame")
-
-#Plot
-ggplot(bbox_robin_df, aes(long,lat, group=group)) + 
+gg8<-ggplot(bbox_robinson_df, aes(long,lat, group=group)) + 
   geom_polygon(fill="white") +
-  geom_polygon(data=wmap_df_robin, aes(long,lat, group=group, fill=hole)) + 
-  geom_path(data=grat_df_robin, aes(long, lat, group=group, fill=NULL), linetype="dashed", color="grey50") +
-  geom_point(data=Fluxnet_Site, aes(x=y.1,y=x.1, group= NULL),  shape=4, color="red", size=3)+
+  geom_polygon(data=wmap_robinson_df, aes(long,lat, group=group, fill=hole)) + 
+  geom_path(data=grat_robinson_df, aes(long, lat, group=group, fill=NULL), linetype="dashed", color="grey50") +
+  geom_point(data=Site_Robinson_df, aes(x=y.1,y=x.1, group= NULL),  shape=4, color="red", size=3)+
   labs(title="Fluxnet sites location") + 
   coord_equal() + 
   theme_opts +
   scale_fill_manual(values=c("grey", "white"), guide="none") # change colors & remove legend
-
+print(gg8)
