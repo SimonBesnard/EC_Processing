@@ -12,7 +12,6 @@ library(REddyProc)
 library (dplyr)
 library (plyr)
 library(gtools)
-library (RColorBrewer)
 library(gamm4)
 library(tidyr)
 library(manipulate)
@@ -24,8 +23,9 @@ library(ggsubplot)
 library (ggmap)
 library(OpenStreetMap)
 library(devtools)
-library (ggvis)
 library(gridExtra)
+library (vrtest)
+library (hydroGOF)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -148,10 +148,6 @@ f1= fitModel(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=GPP_High_Fire, star
 coef(f1)
 plotFun(f1(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,200), add=T)
 
-#Compute r2
-fit<- lm(f1(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
-summary(fit)
-
 # 4.2 Ricker function
 
 # Conpute parameters of the function
@@ -159,10 +155,6 @@ plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
 f2= fitModel(values~A*(Stand_Age*(exp((k*Stand_Age)/2))), data=GPP_High_Fire, start = list(A=500, k= -0.3))
 coef(f2)
 plotFun(f2(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
-
-#Compute r2
-fit<- lm(f2(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
-summary(fit)
 
 # 4.3 Second order polymonial function
 
@@ -172,10 +164,6 @@ f3= fitModel(values~A*Stand_Age^2+B*Stand_Age+C, data=GPP_High_Fire)
 coef(f3)
 plotFun(f3(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
-#Compute r2
-fit<- lm(f3(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
-summary(fit)
-
 # 4.4 Third order polymonial function
 
 # Conpute parameters of the function
@@ -183,10 +171,6 @@ plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
 f4= fitModel(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=GPP_High_Fire)
 coef(f4)
 plotFun(f4(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
-
-#Compute r2
-fit<- lm(f4(GPP_High_Fire$Stand_Age)~GPP_High_Fire$Stand_Age)
-summary(fit)
 
 # 4.5 Amiro function
 
@@ -196,9 +180,35 @@ f5= fitModel(values~A*(1-exp(k*Stand_Age)), data=GPP_High_Fire, start = list(A=1
 coef(f5)
 plotFun(f5(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
-#Compute r2
-fit<- lm(f5(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
-summary(fit)
+# 4.6. Compute statistical test for the fitting function
+
+#R-squared
+R2<- lm(f1(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
+summary(R2)
+
+#Pearson test
+Pearson<-cor.test(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values)
+print(Pearson)
+
+#Spearman test
+Spearman<-cor.test(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values,method = "spearman")
+print(Spearman)
+
+#Kendall test
+Kendall<-cor.test(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values,method = "kendall")
+print(Kendall)
+
+#Normalized RMSE
+NRMSE<-nrmse(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values, norm="maxmin")# one can also use sd for the normalization
+print(NRMSE)
+
+#Variance ratio
+VR<-var.test(f1(GPP_High_Fire$Stand_Age), GPP_High_Fire$values, ratio=1, conf.level=0.95)
+print(VR)
+
+#Modeling efficiency
+MEF<-NSE(f1(GPP_High_Fire$Stand_Age), GPP_High_Fire$values)
+print(MEF)
 
 # 5. Plot ecosystem response with fit function
 
