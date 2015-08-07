@@ -143,82 +143,101 @@ Ratio_High_Fire<-Ratio_High[Ratio_High$Disturbance %in% c("Wildfire"),]
 # 4.1 Gamma function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
-f1= fitModel(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=GPP_High_Fire, start = list(A=1000, B=0.170, k= -0.00295))
+plotPoints(values ~ Stand_Age, data=Reco_High_Fire)
+f1= fitModel(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=Reco_High_Fire, start = list(A=1000, B=0.170, k= -0.00295))
 coef(f1)
 plotFun(f1(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,200), add=T)
 
 # 4.2 Ricker function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
-f2= fitModel(values~A*(Stand_Age*(exp((k*Stand_Age)/2))), data=GPP_High_Fire, start = list(A=500, k= -0.3))
+plotPoints(values ~ Stand_Age, data=Reco_High_Fire)
+f2= fitModel(values~A*(Stand_Age*(exp((k*Stand_Age)/2))), data=Reco_High_Fire, start = list(A=500, k= -0.3))
 coef(f2)
 plotFun(f2(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
 # 4.3 Second order polymonial function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
-f3= fitModel(values~A*Stand_Age^2+B*Stand_Age+C, data=GPP_High_Fire)
+plotPoints(values ~ Stand_Age, data=Reco_High_Fire)
+f3= fitModel(values~A*Stand_Age^2+B*Stand_Age+C, data=Reco_High_Fire)
 coef(f3)
 plotFun(f3(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
 # 4.4 Third order polymonial function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
-f4= fitModel(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=GPP_High_Fire)
+plotPoints(values ~ Stand_Age, data=Reco_High_Fire)
+f4= fitModel(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=Reco_High_Fire)
 coef(f4)
-plotFun(f4(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
+plotFun(f4(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,170), add=T)
 
 # 4.5 Amiro function
 
 # Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=GPP_High_Fire)
-f5= fitModel(values~A*(1-exp(k*Stand_Age)), data=GPP_High_Fire, start = list(A=1500, k= -0.224))
+plotPoints(values ~ Stand_Age, data=Reco_High_Fire)
+f5= fitModel(values~A*(1-exp(k*Stand_Age)), data=Reco_High_Fire, start = list(A=1500, k= -0.224))
 coef(f5)
 plotFun(f5(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
-# 4.6. Compute statistical test for the fitting function
+# 4.6. Compute statistical tests for the fitting function
 
 #R-squared
-R2<- lm(f1(GPP_High_Fire$Stand_Age)~GPP_High_Fire$values)
+R2<- lm(f1(Reco_High_Fire$Stand_Age)~Reco_High_Fire$values)
 summary(R2)
 
 #Pearson test
-Pearson<-cor.test(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values)
+Pearson<-cor.test(f1(Reco_High_Fire$Stand_Age),Reco_High_Fire$values)
 print(Pearson)
 
 #Spearman test
-Spearman<-cor.test(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values,method = "spearman")
+Spearman<-cor.test(f1(Reco_High_Fire$Stand_Age),Reco_High_Fire$values,method = "spearman")
 print(Spearman)
 
 #Kendall test
-Kendall<-cor.test(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values,method = "kendall")
+Kendall<-cor.test(f1(Reco_High_Fire$Stand_Age),Reco_High_Fire$values,method = "kendall")
 print(Kendall)
 
 #Normalized RMSE
-NRMSE<-nrmse(f1(GPP_High_Fire$Stand_Age),GPP_High_Fire$values, norm="maxmin")# one can also use sd for the normalization
+NRMSE<-nrmse(f1(Reco_High_Fire$Stand_Age),Reco_High_Fire$values, norm="maxmin")# one can also use sd for the normalization
 print(NRMSE)
 
-#Variance ratio
-VR<-var.test(f1(GPP_High_Fire$Stand_Age), GPP_High_Fire$values, ratio=1, conf.level=0.95)
+#Variance Reco
+VR<-var.test(f1(Reco_High_Fire$Stand_Age), Reco_High_Fire$values, Reco=1, conf.level=0.95)
 print(VR)
 
 #Modeling efficiency
-MEF<-NSE(f1(GPP_High_Fire$Stand_Age), GPP_High_Fire$values)
+MEF<-NSE(f5(Reco_High_Fire$Stand_Age), Reco_High_Fire$values)
 print(MEF)
 
-# 5. Plot ecosystem response with fit function
+#4.7.Import df with the statistical test output and plot
+
+#Import csv file
+MEF_Out<-read.csv(file = "Output/MEF_Test.csv", header = T)
+
+#Plot data
+MEF_Out$Flux<-factor(MEF_Out$Flux,c("GPP", "Reco", "GPP/Reco"))
+
+gg<-ggplot(MEF_Out, aes(x=Values, y=Function, label=Values)) +
+  geom_point(size=3, shape=3) +
+  geom_text(size=3, vjust=2)+
+  facet_grid(Flux~Disturbance)+
+  xlab("MEF") + ylab("Type of function")+ 
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(gg)
+
+# 5. Plot ecosystem response with the best fit function
 
 # 5.1 Annual carbon flux
 
 #Compute fit function with the best fit
-Harvest_GPP_Fun<-function(x){-0.4392582*x^2 + 48.6588570*x + 260.8064506}
-Harvest_Reco_Fun<-function(x){-0.2554387*x^2 +26.4671995*x + 604.9361162}
-Fire_GPP_Fun<- function(x){13.83017087*(x^1.40517046)*(exp(-0.02274242*x))}
-Fire_Reco_Fun<- function(x){39.82891365*x*(exp(-0.03179599*x/2))}
+Harvest_GPP_Fun<-function(x){-5.377303e-04*x^3 -3.558818e-01*x^2 + 4.543758e+01*x+2.786747e+02}
+Harvest_Reco_Fun<-function(x){-0.001386029*x^3 -0.040531572*x^2 + 18.164191883*x+650.992435538}
+Fire_GPP_Fun<- function(x){1.935848e-03*x^3 -5.929391e-01*x^2 + 5.042659e+01*x -1.842747e+02}
+Fire_Reco_Fun<- function(x){8.987988e-04*x^3 -2.907249e-01*x^2 + 2.584671e+01*x + 2.138053e+02}
 
 #Plot data
 #GPP Harvest
@@ -233,8 +252,8 @@ gg1<-ggplot(GPP_High_Harvest, aes(Stand_Age, values, colour=mean_Uncert)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
   labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
-  ylim(0,3000)
-
+  ylim(0,3000)+
+  annotate("text", x = 27, y = 2800, label = "y=-5.38e-04x^3 -3.56e-01x^2 + 4.54e+01x + 2.79e+02", size=3.5)
 print(gg1)
 
 #Reco Harvest
@@ -249,8 +268,8 @@ gg2<-ggplot(Reco_High_Harvest, aes(Stand_Age, values, colour=mean_Uncert)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
   labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
-  ylim(0,3000)
-
+  ylim(0,3000)+
+  annotate("text", x = 20, y = 2800, label = "y=-0.001x^3 -0.04x^2 + 18.16x + 650.99", size=3.5)
 print(gg2)
 
 #GPP Wildfire
@@ -265,8 +284,8 @@ gg3<-ggplot(GPP_High_Fire, aes(Stand_Age, values, colour=mean_Uncert)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
   labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
-  ylim(0,3000)
-
+  ylim(0,3000)+
+  annotate("text", x = 45, y = 2800, label = "y=1.94e-03x^3 -5.93e-01x^2 + 5.04e+01x -1.84e+02", size=3.5)
 print(gg3)
 
 #Reco Wildfire
@@ -281,15 +300,15 @@ gg4<-ggplot(Reco_High_Fire, aes(Stand_Age, values, colour=mean_Uncert)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
   labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
-  ylim(0,3000)
-
+  ylim(0,3000)+
+  annotate("text", x = 45, y = 2800, label = "y=8.99e-04x^3 -2.91e-01x^2 + 2.58e+01x + 2.14e+02", size=3.5)
 print(gg4)
 
 # 5.2. Ratio GPP and Reco
 
 #Compute fit function with the best fit
 Harvest_Ratio_Fun<-function(x){0.396598614*(x^0.387995395)*(exp(-0.007407526*x))}
-Fire_Ratio_Fun<-function(x){0.194575390*(x^0.537502454)*(exp(-0.006993452*x))}
+Fire_Ratio_Fun<-function(x){1.187271e-06*x^3 -3.611638e-04*x^2 + 3.212131e-02*x+3.052951e-01}
 
 #Plot data
 #Harvest
@@ -306,8 +325,8 @@ gg5<-ggplot(Ratio_High_Harvest,aes(Stand_Age, values, colour=mean_Uncert)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
   labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
-  ylim(0,2.5)
-
+  ylim(0,2.5)+
+  annotate("text", x = 13, y = 2.30, label = "y=0.40x^0.39 X exp(-0.007x)", size=3.5)
 print(gg5)
 
 #Wildfire
@@ -324,8 +343,8 @@ gg6<-ggplot(Ratio_High_Fire,aes(Stand_Age, values, colour=mean_Uncert)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
   labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
-  ylim(0,2.5)
-
+  ylim(0,2.5)+
+  annotate("text", x = 40, y = 2.3, label = "y=1.19e-06x^3 -3.61e-04x^2 + 3.21e-02x+3.05e-01", size=3.5)
 print(gg6)
 
 #5.3.Plot carbon flux and GPP/Reco ratio together
