@@ -401,7 +401,6 @@ m2=  update(m3, ~ . - Rg)
 m1=  update(m2, ~ . - Stand_Age)
 m0=  update(m1, ~ . - Precipitation)
 
-
 af<-anova(m0,m1,m2,m3,m4,m5)
 summary(af)
 afss <- af$"Sum of Sq"
