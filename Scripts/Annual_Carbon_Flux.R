@@ -26,6 +26,8 @@ library(devtools)
 library(gridExtra)
 library (vrtest)
 library (hydroGOF)
+library (FactoMineR)
+library(GGally)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -36,7 +38,7 @@ list <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
 #Loop over the list of files
 Fluxnet_Site <- list()
 for(i in seq_along(list)) {
-  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcOK', 'precip_f_Night_m1', 'precip_f_Day_m1'),
+  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcOK', 'precip_f', 'Tair_f', 'Tsoil_f','Rg_f', 'SWC1_f', 'SWC2_f'),
                                           FileName.s=list[i], NcPackage.s = 'RNetCDF')
 }
 
@@ -82,8 +84,12 @@ Sum_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
                     sd_GPP= sd(GPP_f, na.rm=T),
                     sd_Reco= sd(Reco, na.rm=T),
                     mean_Uncert=mean(NEE_fqcOK, na.rm=T), 
-                    Annual_Pre_Day= sum(precip_f_Day_m1, na.rm=T),
-                    Annual_Pre_Night= sum(precip_f_Night_m1, na.rm=T)))
+                    Annual_Preci= sum(precip_f, na.rm=T),
+                    Tair=mean(Tair_f, na.rm=T),
+                    Tsoil=mean(Tsoil_f, na.rm=T),
+                    SWC1=mean(SWC1_f, na.rm=T),
+                    SWC2=mean(SWC2_f, na.rm=T),
+                    Glob_Rad=mean(Rg_f, na.rm=T)))
 
 #Add type of ecosystem, type of climate, type of disturbance and year after disturbance for each sites
 for (i in seq_along(Sum_Sd_Flux)){
@@ -96,9 +102,7 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
   Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
   Sum_Sd_Flux[[i]]$Int_Replacement<- Site_Date$Intensity_Replacement[i]
-  Sum_Sd_Flux[[i]]$Age_Min<- Site_Date$Age_Forest_Min[i]
-  Sum_Sd_Flux[[i]]$Age_Max<- Site_Date$Age_Forest_Max[i]
-  Sum_Sd_Flux[[i]]$Annual_Preci<-Sum_Sd_Flux[[i]]$Annual_Pre_Day + Sum_Sd_Flux[[i]]$Annual_Pre_Night
+  Sum_Sd_Flux[[i]]$SWC<-(Sum_Sd_Flux[[i]]$SWC1 + Sum_Sd_Flux[[i]]$SWC2)/2 
 }
 
 #Remove outlier sites (US-Blo, CZ-Bk1, US-DK3, IT_Ro1, IT-Ro2, US_Bns, US-NC2)
@@ -106,20 +110,23 @@ Sum_Sd_Flux<- Sum_Sd_Flux[-c(28,36,37,49,50,51,53,63)]
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(127),]# the measurements seems to be an outlier
+dfAll_Sites<-dfAll_Sites[-c(124),]# the measurements seems to be an outlier
 
 # Remove years missing in each flux site
-NA_Value <- apply(dfAll_Sites, 1, function(x){any(is.na(x))})
-dfAll_Sites<- dfAll_Sites[!NA_Value,]
+dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_NEE),]
 
 # Remove high gap filled fraction
 dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.85,]
 
 # Restructure dataframe
-dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -Annual_Preci, -year, -Ecosystem, -mean_Uncert, -Climate, -Disturbance, -Year_Disturbance, -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement)
+dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -Annual_Preci, -year, 
+                    -Ecosystem, -mean_Uncert, -Climate, -Disturbance, 
+                    -Year_Disturbance, -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
+                    -Tair, -Tsoil, -SWC, -Glob_Rad)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", "mean_Uncert", "Year_Disturbance", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
+                            "mean_Uncert", "Tair", "Tsoil","SWC","Glob_Rad","Year_Disturbance", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
@@ -180,7 +187,7 @@ f5= fitModel(values~A*(1-exp(k*Stand_Age)), data=Reco_High_Fire, start = list(A=
 coef(f5)
 plotFun(f5(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,120), add=T)
 
-# 4.6. Compute statistical tests for the fitting function
+# 4.6. Compute statistical tests for the fitting functions
 
 #R-squared
 R2<- lm(f1(Reco_High_Fire$Stand_Age)~Reco_High_Fire$values)
@@ -225,8 +232,8 @@ gg<-ggplot(MEF_Out, aes(x=Values, y=Function, label=Values)) +
   xlab("MEF") + ylab("Type of function")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  xlim(0,1)
 print(gg)
 
 # 5. Plot ecosystem response with the best fit function
@@ -342,12 +349,13 @@ gg6<-ggplot(Ratio_High_Fire,aes(Stand_Age, values, colour=mean_Uncert)) +
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_colour_gradient(low="#FF0000", high = "#00FF33", limits=c(0.80,1))+
+  guides(fill=guide_legend(ncol=2)) +
   labs(colour="Fraction of gap-filled data", size="Annual precipitation (mm.y-1)")+
   ylim(0,2.5)+
   annotate("text", x = 40, y = 2.3, label = "y=1.19e-06x^3 -3.61e-04x^2 + 3.21e-02x+3.05e-01", size=3.5)
 print(gg6)
 
-#5.3.Plot carbon flux and GPP/Reco ratio together
+#5.3.Plot carbon fluxes and GPP/Reco ratio together
 gA <- ggplotGrob(gg1)
 gB <- ggplotGrob(gg3)
 gC <- ggplotGrob(gg2)
@@ -372,29 +380,29 @@ print(gg7)
 #6.1. Anova analysis
 
 #Subset dataset
-dfAll_Sites$Year_Disturbance<-as.factor(dfAll_Sites$Year_Disturbance)
-dfAll_Sites$Climate<-as.factor(dfAll_Sites$Climate)
-dfAll_Sites<-na.omit(dfAll_Sites)
-An_GPP<- dfAll_Sites[dfAll_Sites$Type_Flux %in% c("sum_GPP"),]
-
-#Compute Anova for GPP
-an<-aov(log(values)~Disturbance, An_GPP)
-summary(an)
-
-#Compute Tukey test
-TukeyHSD(x = an)
-par(mfrow=c(2,2))
-plot(an)
+Flux_High<-dfAll_Sites[dfAll_Sites$Int_Replacement %in% c("High"),]
+GPP_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
+Reco_High<-Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
+GPP_High_Harvest<-GPP_High[GPP_High$Disturbance %in% c("Harvest"),]
+Reco_High_Harvest<-Reco_High[Reco_High$Disturbance %in% c("Harvest"),]
+GPP_High_Fire<-GPP_High[GPP_High$Disturbance %in% c("Wildfire"),]
+Reco_High_Fire<-Reco_High[Reco_High$Disturbance %in% c("Wildfire"),]
+Ratio_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
+Ratio_High_Harvest<-Ratio_High[Ratio_High$Disturbance %in% c("Harvest"),]
+Ratio_High_Fire<-Ratio_High[Ratio_High$Disturbance %in% c("Wildfire"),]
 
 #Compute linear model
-fit = lm(values ~ Disturbance + Climate + Year_Disturbance, data=An_GPP)
+fit = lm(GPP ~ Precipitation + Stand_Age +Tair + Tsoil + Rg, data=GPP_High_PCA)
 
-m3 = fit
-m2 = update(m3, ~ . - Ecosytem)
-m1 = update(m2, ~ . - Climate)
-m0=  update(m1, ~ . - Year_Disturbance)
+m5 = fit
+m4 = update(m5, ~ . - Tair)
+m3 = update(m4, ~ . - Tsoil)
+m2=  update(m3, ~ . - Rg)
+m1=  update(m2, ~ . - Stand_Age)
+m0=  update(m1, ~ . - Precipitation)
 
-af<-anova(m0,m1,m2,m3)
+
+af<-anova(m0,m1,m2,m3,m4,m5)
 summary(af)
 afss <- af$"Sum of Sq"
 print(cbind(af,PctExp=afss/sum(afss)*100))
@@ -403,10 +411,74 @@ print(cbind(af,PctExp=afss/sum(afss)*100))
 af<-step(fit, direction = c("forward"), steps = 2000)
 summary(af)
 
+# 6.2 Principal Components Analysis
+
+#Subset the data
+Ratio_High_PCA<-data.frame(cbind(Ratio_High$values, Ratio_High$Annual_Preci, Ratio_High$Stand_Age,
+                                   Ratio_High$Tair, Ratio_High$Tsoil,
+                                   Ratio_High$Glob_Rad))
+
+colnames(Ratio_High_PCA)<-c("Ratio", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg")
+
+#Plot the pairwise scatterplots
+gg7<-ggpairs(Ratio_High_PCA,
+        columns = c(1,2,3,4,5,6),
+        legends=T,
+        lower = list(continuous = "points"),
+        diag = list(continuous = "density"),
+        axisLabels = "none",
+        title = "Correlation matrix - GPP/Reco")+ 
+  theme_bw(base_size = 14, base_family = "Helvetica")
+print(gg7)
+
+# Perform the principal component analysis
+arc.pca1<-prcomp(na.omit(GPP_High_Harvest_PCA), scores=T, cor=T)
+summary(arc.pca1, loadings=T)
+
+# create data frame with scores
+scores = as.data.frame(arc.pca1$x)
+
+# plot of observations
+gg8<-ggplot(data = scores, aes(x = PC1, y = PC2, label = rownames(scores))) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_text(colour = "tomato", alpha = 0.8, size = 4)
+print(gg8)
+
+# function to create a circle of correlations
+circle <- function(center = c(0, 0), npoints = 100) {
+  r = 1
+  tt = seq(0, 2 * pi, length = npoints)
+  xx = center[1] + r * cos(tt)
+  yy = center[1] + r * sin(tt)
+  return(data.frame(x = xx, y = yy))
+}
+corcir = circle(c(0, 0), npoints = 100)
+
+# create data frame with correlations between variables and PCs
+correlations = as.data.frame(cor(na.omit(GPP_High_Harvest_PCA), arc.pca1$x))
+
+# data frame with arrows coordinates
+arrows = data.frame(x1 = c(0, 0, 0, 0, 0, 0), y1 = c(0, 0, 0, 0, 0, 0), x2 = correlations$PC1, 
+                    y2 = correlations$PC2)
+
+# geom_path will do open circles
+gg9<-ggplot() + geom_path(data = corcir, aes(x = x, y = y), colour = "gray65") + 
+  geom_segment(data = arrows, aes(x = x1, y = y1, xend = x2, yend = y2), colour = "red") + 
+  geom_text(data = correlations, aes(x = PC1, y = PC2, label = rownames(correlations))) + 
+  geom_hline(yintercept = 0, colour = "gray65") + geom_vline(xintercept = 0, colour = "gray65")+
+  xlim(-1.1, 1.1) + ylim(-1.1, 1.1) + labs(x = "pc1 aixs", y = "pc2 axis")+
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(gg9)
+
 #7. Spatial map with the flux sites
 
 # Import site information
 Site_Info<-read.csv("Input/Potential_Sites.csv", header = TRUE)
+Site_Info<- Site_Info[-c(28,36,37,49,50,51,53,63),]
+Site_Info<-Site_Info[Site_Info$Intensity_Replacement %in% c("High"),]
 
 #7.1 Land shapefile
 
@@ -442,7 +514,7 @@ bbox_robinson <- spTransform(bbox, CRS("+proj=wintri"))
 bbox_robinson_df <- fortify(bbox_robinson)
 
 # 7.4. Import Fluxnet information
-Site <- SpatialPointsDataFrame(coords=Site_Date[,c("y","x")],data=data.frame(Site_Info),proj4string=CRS(proj="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+Site <- SpatialPointsDataFrame(coords=Site_Info[,c("y","x")],data=data.frame(Site_Info),proj4string=CRS(proj="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
 Site_Robinson <- spTransform(Site, CRS("+proj=wintri"))
 Site_Robinson_df <- as(Site_Robinson, "data.frame")
 
@@ -467,8 +539,8 @@ gg8<-ggplot(bbox_robinson_df, aes(long,lat, group=group)) +
   geom_polygon(fill="white") +
   geom_polygon(data=wmap_robinson_df, aes(long,lat, group=group, fill=hole)) + 
   geom_path(data=grat_robinson_df, aes(long, lat, group=group, fill=NULL), linetype="dashed", color="grey50") +
-  geom_point(data=Site_Robinson_df, aes(x=y.1,y=x.1, group= NULL),  shape=4, color="red", size=3)+
-  labs(title="Fluxnet sites location") + 
+  geom_point(data=Site_Robinson_df, aes(x=y.1,y=x.1, group= NULL),  shape=20, color="red", size=3)+
+  # labs(title="Fluxnet sites location") + 
   coord_equal() + 
   theme_opts +
   scale_fill_manual(values=c("grey", "white"), guide="none") # change colors & remove legend
