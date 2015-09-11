@@ -28,6 +28,9 @@ library (vrtest)
 library (hydroGOF)
 library (FactoMineR)
 library(GGally)
+library (bootstrap)
+library (foreach)
+library (nlstools)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -89,7 +92,7 @@ Sum_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
                     Tsoil=mean(Tsoil_f, na.rm=T),
                     SWC1=mean(SWC1_f, na.rm=T),
                     SWC2=mean(SWC2_f, na.rm=T),
-                    Glob_Rad=mean(Rg_f, na.rm=T)))
+                    Rg=mean(Rg_f, na.rm=T)))
 
 #Add type of ecosystem, type of climate, type of disturbance and year after disturbance for each sites
 for (i in seq_along(Sum_Sd_Flux)){
@@ -105,12 +108,12 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$SWC<-(Sum_Sd_Flux[[i]]$SWC1 + Sum_Sd_Flux[[i]]$SWC2)/2 
 }
 
-#Remove outlier sites (US-Blo, CZ-Bk1, US-DK3, IT_Ro1, IT-Ro2, US_Bns, US-NC2)
+#Remove outlier sites (US-Blo, CZ-Bk1, US-DK3, IT_Ro1, IT-Ro2, US_Bn2, US-NC2)
 Sum_Sd_Flux<- Sum_Sd_Flux[-c(28,36,37,49,50,51,53,63)]
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(124),]# the measurements seems to be an outlier
+dfAll_Sites<-dfAll_Sites[-c(127),]# the measurements seems to be an outlier
 
 # Remove years missing in each flux site
 dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_NEE),]
@@ -122,38 +125,42 @@ dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.85,]
 dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -Annual_Preci, -year, 
                     -Ecosystem, -mean_Uncert, -Climate, -Disturbance, 
                     -Year_Disturbance, -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                    -Tair, -Tsoil, -SWC, -Glob_Rad)
+                    -Tair, -Tsoil, -SWC, -Rg)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                            "mean_Uncert", "Tair", "Tsoil","SWC","Glob_Rad","Year_Disturbance", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "value", "Annual_Preci", 
+                            "mean_Uncert", "Tair", "Tsoil","SWC","Rg","Year_Disturbance", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
                     ifelse((dfAll_Sites$Climate =="Cfa" | dfAll_Sites$Climate =="Cfb" | dfAll_Sites$Climate =="Cfc" | dfAll_Sites$Climate =="Csa" | dfAll_Sites$Climate =="Csb"), "Temperate",
                            ifelse((dfAll_Sites$Climate =="Dfb" | dfAll_Sites$Climate =="Dfc" | dfAll_Sites$Climate =="Dsc"), "Continental", NA)))
 
+
 #.4.Function fit choice for ecosystem response
 
 #Subset dataframe for fitting process 
 Flux_High<-dfAll_Sites[dfAll_Sites$Int_Replacement %in% c("High"),]
-GPP_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
-Reco_High<-Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
+GPP_High<-Flux_High[Flux_High$variable %in% c("GPP"),]
+Reco_High<-Flux_High[Flux_High$variable %in% c("Respiration"),]
 GPP_High_Harvest<-GPP_High[GPP_High$Disturbance %in% c("Harvest"),]
 Reco_High_Harvest<-Reco_High[Reco_High$Disturbance %in% c("Harvest"),]
 GPP_High_Fire<-GPP_High[GPP_High$Disturbance %in% c("Wildfire"),]
 Reco_High_Fire<-Reco_High[Reco_High$Disturbance %in% c("Wildfire"),]
-Ratio_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
+Ratio_High<-Flux_High[Flux_High$variable %in% c("GPP_ER"),]
 Ratio_High_Harvest<-Ratio_High[Ratio_High$Disturbance %in% c("Harvest"),]
 Ratio_High_Fire<-Ratio_High[Ratio_High$Disturbance %in% c("Wildfire"),]
 
 # 4.1 Gamma function
 
-# Conpute parameters of the function
-plotPoints(values ~ Stand_Age, data=Reco_High_Fire)
-f1= fitModel(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=Reco_High_Fire, start = list(A=1000, B=0.170, k= -0.00295))
-coef(f1)
-plotFun(f1(Stand_Age)~Stand_Age, Stand_Age.lim=range(0,200), add=T)
+# Conpute parameters of the function with bootsraping
+Fun_Gamma <- nls(value~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=GPP_High_Harvest, 
+                            start = list(A=1000, B=0.170, k= -0.00295),algorithm="port")
+Boo_Gamma <- nlsBoot(Fun_Gamma,niter=200)
+plot(Boo_Gamma, type="boxplot")
+
+# Store parameters combination in a new dataframe
+Param_Gamma<-Boo_Gamma$coefboot
 
 # 4.2 Ricker function
 
@@ -214,8 +221,11 @@ VR<-var.test(f1(Reco_High_Fire$Stand_Age), Reco_High_Fire$values, Reco=1, conf.l
 print(VR)
 
 #Modeling efficiency
-MEF<-NSE(f5(Reco_High_Fire$Stand_Age), Reco_High_Fire$values)
+MEF<-NSE(f1(Reco_High_Fire$Stand_Age), Reco_High_Fire$values)
 print(MEF)
+
+#Bootstrap (https://www.youtube.com/watch?v=cv2TSOHPp1o; https://cran.r-project.org/web/packages/broom/vignettes/bootstrapping.html; 
+# https://rpubs.com/dgolicher/median_boot)
 
 #4.7.Import df with the statistical test output and plot
 
@@ -248,11 +258,12 @@ Fire_Reco_Fun<- function(x){8.987988e-04*x^3 -2.907249e-01*x^2 + 2.584671e+01*x 
 
 #Plot data
 #GPP Harvest
-gg1<-ggplot(GPP_High_Harvest, aes(Stand_Age, values, colour=mean_Uncert)) +
+gg1<-ggplot(GPP_High_Harvest, aes(Stand_Age, value, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
   scale_size(range = c(3, 6)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
-  stat_function(fun=Harvest_GPP_Fun, color="red")+
+  facet_grid(variable~Disturbance, scales="free_x")+
+  # geom_line(aes(y=predict(Fun_Gamma, colour="red")))+
+  # stat_function(fun=Harvest_GPP_Fun, color="red")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
@@ -392,14 +403,14 @@ Ratio_High_Harvest<-Ratio_High[Ratio_High$Disturbance %in% c("Harvest"),]
 Ratio_High_Fire<-Ratio_High[Ratio_High$Disturbance %in% c("Wildfire"),]
 
 #Compute linear model
-fit = lm(GPP ~ Precipitation + Stand_Age +Tair + Tsoil + Rg, data=GPP_High_PCA)
+fit = lm(values ~ Annual_Preci + Stand_Age +Tair + Tsoil + Rg, data=GPP_High)
 
 m5 = fit
 m4 = update(m5, ~ . - Tair)
 m3 = update(m4, ~ . - Tsoil)
 m2=  update(m3, ~ . - Rg)
 m1=  update(m2, ~ . - Stand_Age)
-m0=  update(m1, ~ . - Precipitation)
+m0=  update(m1, ~ . - Annual_Preci)
 
 af<-anova(m0,m1,m2,m3,m4,m5)
 summary(af)
@@ -413,25 +424,25 @@ summary(af)
 # 6.2 Principal Components Analysis
 
 #Subset the data
-Ratio_High_PCA<-data.frame(cbind(Ratio_High$values, Ratio_High$Annual_Preci, Ratio_High$Stand_Age,
-                                   Ratio_High$Tair, Ratio_High$Tsoil,
-                                   Ratio_High$Glob_Rad))
+Reco_High_PCA<-data.frame(cbind(Reco_High$values, Reco_High$Annual_Preci, Reco_High$Stand_Age,
+                                   Reco_High$Tair, Reco_High$Tsoil,
+                                   Reco_High$Rg))
 
-colnames(Ratio_High_PCA)<-c("Ratio", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg")
+colnames(Reco_High_PCA)<-c("Reco", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg")
 
 #Plot the pairwise scatterplots
-gg7<-ggpairs(Ratio_High_PCA,
+gg7<-ggpairs(Reco_High_PCA,
         columns = c(1,2,3,4,5,6),
         legends=T,
         lower = list(continuous = "points"),
         diag = list(continuous = "density"),
         axisLabels = "none",
-        title = "Correlation matrix - GPP/Reco")+ 
+        title = "Correlation matrix - Reco")+ 
   theme_bw(base_size = 14, base_family = "Helvetica")
 print(gg7)
 
 # Perform the principal component analysis
-arc.pca1<-prcomp(na.omit(GPP_High_Harvest_PCA), scores=T, cor=T)
+arc.pca1<-prcomp(na.omit(Reco_High_PCA), scores=T, cor=T)
 summary(arc.pca1, loadings=T)
 
 # create data frame with scores
@@ -455,7 +466,7 @@ circle <- function(center = c(0, 0), npoints = 100) {
 corcir = circle(c(0, 0), npoints = 100)
 
 # create data frame with correlations between variables and PCs
-correlations = as.data.frame(cor(na.omit(GPP_High_Harvest_PCA), arc.pca1$x))
+correlations = as.data.frame(cor(na.omit(Reco_High_PCA), arc.pca1$x))
 
 # data frame with arrows coordinates
 arrows = data.frame(x1 = c(0, 0, 0, 0, 0, 0), y1 = c(0, 0, 0, 0, 0, 0), x2 = correlations$PC1, 
@@ -469,10 +480,11 @@ gg9<-ggplot() + geom_path(data = corcir, aes(x = x, y = y), colour = "gray65") +
   xlim(-1.1, 1.1) + ylim(-1.1, 1.1) + labs(x = "pc1 aixs", y = "pc2 axis")+
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("PCA-Reco")
 print(gg9)
 
-#7. Spatial map with the flux sites
+#7. Map with the location of the fluxnet sites
 
 # Import site information
 Site_Info<-read.csv("Input/Potential_Sites.csv", header = TRUE)
