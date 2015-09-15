@@ -7,30 +7,24 @@ library(RNetCDF)
 library (ggplot2)
 library(scales)
 library(lubridate)
-library(gridExtra)
 library(REddyProc)
 library (dplyr)
 library (plyr)
 library(gtools)
-library(gamm4)
 library(tidyr)
 library(manipulate)
 library(MASS)
-library(fitdistrplus)
-library(mosaic)
-library (maps)
-library(ggsubplot)
-library (ggmap)
-library(OpenStreetMap)
 library(devtools)
 library(gridExtra)
-library (vrtest)
-library (hydroGOF)
-library (FactoMineR)
-library(GGally)
 library (bootstrap)
 library (foreach)
 library (nlstools)
+library(randomForest)
+library(hexbin)
+library(RColorBrewer)
+library(plot3D)
+library(ggRandomForests)
+library(randomForestSRC)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -126,9 +120,10 @@ dfAll_Sites<-gather(dfAll_Sites, Type_Flux, values, -Annual_Preci, -year,
                     -Ecosystem, -mean_Uncert, -Climate, -Disturbance, 
                     -Year_Disturbance, -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
                     -Tair, -Tsoil, -SWC, -Rg)
+names(dfAll_Sites)
 
 #Reoder column
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "value", "Annual_Preci", 
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
                             "mean_Uncert", "Tair", "Tsoil","SWC","Rg","Year_Disturbance", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
 
 # Reclassify climate classification
@@ -141,20 +136,20 @@ dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate ==
 
 #Subset dataframe for fitting process 
 Flux_High<-dfAll_Sites[dfAll_Sites$Int_Replacement %in% c("High"),]
-GPP_High<-Flux_High[Flux_High$variable %in% c("GPP"),]
-Reco_High<-Flux_High[Flux_High$variable %in% c("Respiration"),]
+GPP_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
+Reco_High<-Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
 GPP_High_Harvest<-GPP_High[GPP_High$Disturbance %in% c("Harvest"),]
 Reco_High_Harvest<-Reco_High[Reco_High$Disturbance %in% c("Harvest"),]
 GPP_High_Fire<-GPP_High[GPP_High$Disturbance %in% c("Wildfire"),]
 Reco_High_Fire<-Reco_High[Reco_High$Disturbance %in% c("Wildfire"),]
-Ratio_High<-Flux_High[Flux_High$variable %in% c("GPP_ER"),]
+Ratio_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
 Ratio_High_Harvest<-Ratio_High[Ratio_High$Disturbance %in% c("Harvest"),]
 Ratio_High_Fire<-Ratio_High[Ratio_High$Disturbance %in% c("Wildfire"),]
 
 # 4.1 Gamma function
 
 # Conpute parameters of the function with bootsraping
-Fun_Gamma <- nls(value~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=GPP_High_Harvest, 
+Fun_Gamma <- nls(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=GPP_High_Harvest, 
                             start = list(A=1000, B=0.170, k= -0.00295),algorithm="port")
 Boo_Gamma <- nlsBoot(Fun_Gamma,niter=200)
 plot(Boo_Gamma, type="boxplot")
@@ -258,12 +253,12 @@ Fire_Reco_Fun<- function(x){8.987988e-04*x^3 -2.907249e-01*x^2 + 2.584671e+01*x 
 
 #Plot data
 #GPP Harvest
-gg1<-ggplot(GPP_High_Harvest, aes(Stand_Age, value, colour=mean_Uncert)) +
+gg1<-ggplot(GPP_High_Harvest, aes(Stand_Age, values, colour=mean_Uncert)) +
   geom_point(aes(size = Annual_Preci), alpha = 0.5, position = "jitter") +
   scale_size(range = c(3, 6)) +
-  facet_grid(variable~Disturbance, scales="free_x")+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
   # geom_line(aes(y=predict(Fun_Gamma, colour="red")))+
-  # stat_function(fun=Harvest_GPP_Fun, color="red")+
+  stat_function(fun=Harvest_GPP_Fun, color="red")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
@@ -394,6 +389,7 @@ print(gg7)
 Flux_High<-dfAll_Sites[dfAll_Sites$Int_Replacement %in% c("High"),]
 GPP_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
 Reco_High<-Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
+NEE_High<-Flux_High[Flux_High$Type_Flux %in% c("NEE"),]
 GPP_High_Harvest<-GPP_High[GPP_High$Disturbance %in% c("Harvest"),]
 Reco_High_Harvest<-Reco_High[Reco_High$Disturbance %in% c("Harvest"),]
 GPP_High_Fire<-GPP_High[GPP_High$Disturbance %in% c("Wildfire"),]
@@ -483,6 +479,131 @@ gg9<-ggplot() + geom_path(data = corcir, aes(x = x, y = y), colour = "gray65") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("PCA-Reco")
 print(gg9)
+
+# 7. Compute Random Forest on the annual flux
+
+#7.1 GPP
+
+#Subset the data
+GPP_High<-data.frame(cbind(GPP_High$values, GPP_High$Annual_Preci, GPP_High$Stand_Age,
+                           GPP_High$Tair, GPP_High$Tsoil,
+                           GPP_High$Rg))
+
+colnames(GPP_High)<-c("GPP", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg")
+
+# plot panels for each covariate colored by the logical chas variable.
+dta <- melt(GPP_High, id.vars=c("GPP"))
+
+ggplot(dta, aes(x=GPP, y=value))+
+  geom_point(alpha=.4)+
+  geom_rug(data=dta %>% filter(is.na(value)))+
+  # labs(y="", x=st.labs["GPP"]) +
+  scale_color_brewer(palette="Set2")+
+  facet_wrap(~variable, scales="free_y", ncol=2)+
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme_bw(base_size = 12, base_family = "Helvetica") 
+
+# sample size
+nobs <- nrow(na.omit(GPP_High))
+
+## Train a Random Foret 
+GPP_High<-na.omit(GPP_High)
+rf_GPP<-rfsrc(GPP~., data=GPP_High, ntree = 1000, na.action = "na.omit")
+
+# Compute correlation
+cor_rf_GPP<-(cor(predict(rf_GPP,GPP_High)$predicted, GPP_High$GPP))^2
+
+## Cross validation
+crossclass <- sample(5,nobs,TRUE)
+crossPredict <- rep(NA,nobs)
+for (i in 1:5) {
+  indtrain<-which(crossclass!=i)
+  indvalidate<-setdiff(1:nobs,indtrain)
+  rf_GPP_CV<-rfsrc(GPP~., data=GPP_High[indtrain,], ntree = 10000, importance = "permute", na.action = "na.omit")
+  crossPredict[indvalidate]<-predict(rf_GPP_CV, GPP_High[indvalidate,])$predicted
+}
+
+cor_rf_GPP_CV<-(cor(crossPredict, GPP_High$GPP, use='pairwise'))^2
+
+# Plot the OOB errors against the growth of the forest.
+theme_set(theme_bw())
+gg_e <- gg_error(rf_GPP) 
+plot(gg_e)
+
+# Plot predicted median home values.
+plot(gg_rfsrc(rf_GPP), alpha=.5)+
+  coord_cartesian()
+
+## Compute the importance of variable rankings of independent variables.
+fit=randomForest(GPP~., data=GPP_High, ntree = 10000, na.action = "na.omit")
+varImpPlot(fit,type=2)
+
+## Compute the Minimal Depth
+varsel_GPP <- var.select(rf_GPP)
+gg_md <- gg_minimal_depth(varsel_GPP)
+plot(gg_md)
+
+#7.2. NEE 
+#Subset the data
+NEE_High<-data.frame(cbind(NEE_High$values, NEE_High$Annual_Preci, NEE_High$Stand_Age,
+                           NEE_High$Tair, NEE_High$Tsoil,
+                           NEE_High$Rg))
+
+colnames(NEE_High)<-c("NEE", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg")
+
+# plot panels for each covariate colored by the logical chas variable.
+dta <- melt(NEE_High, id.vars=c("NEE"))
+
+ggplot(dta, aes(x=NEE, y=value))+
+  geom_point(alpha=.4)+
+  geom_rug(data=dta %>% filter(is.na(value)))+
+  # labs(y="", x=st.labs["NEE"]) +
+  scale_color_brewer(palette="Set2")+
+  facet_wrap(~variable, scales="free_y", ncol=2)+
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme_bw(base_size = 12, base_family = "Helvetica") 
+
+# sample size
+nobs <- nrow(na.omit(NEE_High))
+
+## Train a Random Foret 
+NEE_High<-na.omit(NEE_High)
+rf_NEE<-rfsrc(NEE~., data=NEE_High, ntree = 1000, na.action = "na.omit")
+
+# Compute correlation
+cor_rf_NEE<-(cor(predict(rf_NEE,NEE_High)$predicted, NEE_High$NEE))^2
+
+## Cross validation
+crossclass <- sample(5,nobs,TRUE)
+crossPredict <- rep(NA,nobs)
+for (i in 1:5) {
+  indtrain<-which(crossclass!=i)
+  indvalidate<-setdiff(1:nobs,indtrain)
+  rf_NEE_CV<-rfsrc(NEE~., data=NEE_High[indtrain,], ntree = 10000, importance = "permute", na.action = "na.omit")
+  crossPredict[indvalidate]<-predict(rf_NEE_CV, NEE_High[indvalidate,])$predicted
+}
+
+cor_rf_NEE_CV<-(cor(crossPredict, NEE_High$NEE, use='pairwise'))^2
+
+# Plot the OOB errors against the growth of the forest.
+theme_set(theme_bw())
+gg_e <- gg_error(rf_NEE) 
+plot(gg_e)
+
+# Plot predicted median home values.
+plot(gg_rfsrc(rf_NEE), alpha=.5)+
+  coord_cartesian()
+
+## Compute the importance of variable rankings of independent variables.
+fit=randomForest(NEE~., data=NEE_High, ntree = 10000, na.action = "na.omit")
+varImpPlot(fit,type=2)
+
+## Compute the Minimal Depth
+varsel_NEE <- var.select(rf_NEE)
+gg_md <- gg_minimal_depth(varsel_NEE)
+plot(gg_md)
 
 #7. Map with the location of the fluxnet sites
 
