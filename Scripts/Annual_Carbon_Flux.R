@@ -504,45 +504,62 @@ ggplot(dta, aes(x=GPP, y=value))+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   theme_bw(base_size = 12, base_family = "Helvetica") 
 
-# sample size
-nobs <- nrow(na.omit(GPP_High))
+## Create a basic Random Forest
 
-## Train a Random Foret 
-GPP_High<-na.omit(GPP_High)
-rf_GPP<-rfsrc(GPP~., data=GPP_High, ntree = 1000, na.action = "na.omit")
+# Create Training & Test Sets
+set.seed(42)
+rownames(GPP_High)<-1:nrow(GPP_High)
+rows <- sample(x=1:nrow(GPP_High),size=0.7 *  nrow(GPP_High))
+train <- GPP_High[rows,]
+test <-GPP_High[!rownames(GPP_High) %in% rows,]
+
+#Train a Random Foret 
+set.seed(42)
+rf_GPP<-randomForest(GPP~., data=train, ntree = 1000, na.action = "na.omit", importance=T)
 
 # Compute correlation
-cor_rf_GPP<-(cor(predict(rf_GPP,GPP_High)$predicted, GPP_High$GPP))^2
+cor_rf_GPP<-(cor(predict(rf_GPP,train), train$GPP, use="pairwise"))^2
 
-## Cross validation
+## Create a final Random forest
+nobs <- nrow(na.omit(train))
 crossclass <- sample(5,nobs,TRUE)
 crossPredict <- rep(NA,nobs)
 for (i in 1:5) {
   indtrain<-which(crossclass!=i)
   indvalidate<-setdiff(1:nobs,indtrain)
-  rf_GPP_CV<-rfsrc(GPP~., data=GPP_High[indtrain,], ntree = 10000, importance = "permute", na.action = "na.omit")
-  crossPredict[indvalidate]<-predict(rf_GPP_CV, GPP_High[indvalidate,])$predicted
+  rf_GPP_CV<-randomForest(GPP~., data=train[indtrain,], ntree = 1000, importance = T, na.action = "na.omit")
+  crossPredict[indvalidate]<-predict(rf_GPP_CV, train[indvalidate,])
 }
 
-cor_rf_GPP_CV<-(cor(crossPredict, GPP_High$GPP, use='pairwise'))^2
+#Compute correlation
+cor_rf_GPP_CV<-(cor(crossPredict, train$GPP, use='pairwise'))^2
 
-# Plot the OOB errors against the growth of the forest.
-theme_set(theme_bw())
-gg_e <- gg_error(rf_GPP) 
-plot(gg_e)
+# Plot the OOB errors  and variable importance importance .
+imp<-importance(rf_GPP_CV)
+vars<-dimnames(imp)[[1]]
+imp<-data.frame(vars=vars,imp=as.numeric(imp[,1]))
+imp<-imp[order(imp$imp,decreasing=T),]
+par(mfrow=c(1,2))
+varImpPlot(model0,main='Variable Importance Plot: Base Model')
+plot(model0,main='Error vs No. of trees plot: Base Model')
 
-# Plot predicted median home values.
-plot(gg_rfsrc(rf_GPP), alpha=.5)+
-  coord_cartesian()
+## Model prediction
 
-## Compute the importance of variable rankings of independent variables.
-fit=randomForest(GPP~., data=GPP_High, ntree = 10000, na.action = "na.omit")
-varImpPlot(fit,type=2)
+# Estimate MSE and RMSE
+pred<-predict(object=rf_GPP_CV, newdata=test)
+actual<-test$GPP
+result<-data.frame(actual=actual,predicted=pred)
+paste('Function Call: ', rf_GPP_CV$call)
+paste('Mean Squared error: ',mean(rf_GPP_CV$mse))
+paste('Root Mean Squared error: ',mean(sqrt(rf_GPP_CV$mse)))
 
-## Compute the Minimal Depth
-varsel_GPP <- var.select(rf_GPP)
-gg_md <- gg_minimal_depth(varsel_GPP)
-plot(gg_md)
+#Plot observation vs. prediction
+ggplot(result)+
+  geom_point(aes(x=actual,y=predicted,color=predicted-actual),alpha=0.7)+
+  ggtitle('Plotting Error')+
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme_bw(base_size = 12, base_family = "Helvetica") 
 
 #7.2. NEE 
 #Subset the data
@@ -551,6 +568,7 @@ NEE_High<-data.frame(cbind(NEE_High$values, NEE_High$Annual_Preci, NEE_High$Stan
                            NEE_High$Rg))
 
 colnames(NEE_High)<-c("NEE", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg")
+NEE_High<-na.omit(NEE_High)
 
 # plot panels for each covariate colored by the logical chas variable.
 dta <- melt(NEE_High, id.vars=c("NEE"))
@@ -565,45 +583,62 @@ ggplot(dta, aes(x=NEE, y=value))+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   theme_bw(base_size = 12, base_family = "Helvetica") 
 
-# sample size
-nobs <- nrow(na.omit(NEE_High))
+## Create a basic Random Forest
 
-## Train a Random Foret 
-NEE_High<-na.omit(NEE_High)
-rf_NEE<-rfsrc(NEE~., data=NEE_High, ntree = 1000, na.action = "na.omit")
+# Create Training & Test Sets
+set.seed(42)
+rownames(NEE_High)<-1:nrow(NEE_High)
+rows <- sample(x=1:nrow(NEE_High),size=0.7 *  nrow(NEE_High))
+train <- NEE_High[rows,]
+test <-NEE_High[!rownames(NEE_High) %in% rows,]
+
+#Train a Random Foret 
+set.seed(42)
+rf_NEE<-randomForest(NEE~., data=train, ntree = 1000, na.action = "na.omit", importance=T)
 
 # Compute correlation
-cor_rf_NEE<-(cor(predict(rf_NEE,NEE_High)$predicted, NEE_High$NEE))^2
+cor_rf_NEE<-(cor(predict(rf_NEE,train), train$NEE, use="pairwise"))^2
 
-## Cross validation
+## Create a final Random forest
+nobs <- nrow(na.omit(train))
 crossclass <- sample(5,nobs,TRUE)
 crossPredict <- rep(NA,nobs)
 for (i in 1:5) {
   indtrain<-which(crossclass!=i)
   indvalidate<-setdiff(1:nobs,indtrain)
-  rf_NEE_CV<-rfsrc(NEE~., data=NEE_High[indtrain,], ntree = 10000, importance = "permute", na.action = "na.omit")
-  crossPredict[indvalidate]<-predict(rf_NEE_CV, NEE_High[indvalidate,])$predicted
+  rf_NEE_CV<-randomForest(NEE~., data=train[indtrain,], ntree = 1000, importance = T, na.action = "na.omit")
+  crossPredict[indvalidate]<-predict(rf_NEE_CV, train[indvalidate,])
 }
 
-cor_rf_NEE_CV<-(cor(crossPredict, NEE_High$NEE, use='pairwise'))^2
+#Compute correlation
+cor_rf_NEE_CV<-(cor(crossPredict, train$NEE, use='pairwise'))^2
 
-# Plot the OOB errors against the growth of the forest.
-theme_set(theme_bw())
-gg_e <- gg_error(rf_NEE) 
-plot(gg_e)
+# Plot the OOB errors  and variable importance importance .
+imp<-importance(rf_NEE_CV)
+vars<-dimnames(imp)[[1]]
+imp<-data.frame(vars=vars,imp=as.numeric(imp[,1]))
+imp<-imp[order(imp$imp,decreasing=T),]
+par(mfrow=c(1,2))
+varImpPlot(model0,main='Variable Importance Plot: Base Model')
+plot(model0,main='Error vs No. of trees plot: Base Model')
 
-# Plot predicted median home values.
-plot(gg_rfsrc(rf_NEE), alpha=.5)+
-  coord_cartesian()
+## Model prediction
 
-## Compute the importance of variable rankings of independent variables.
-fit=randomForest(NEE~., data=NEE_High, ntree = 10000, na.action = "na.omit")
-varImpPlot(fit,type=2)
+# Estimate MSE and RMSE
+pred<-predict(object=rf_NEE_CV, newdata=test)
+actual<-test$NEE
+result<-data.frame(actual=actual,predicted=pred)
+paste('Function Call: ', rf_NEE_CV$call)
+paste('Mean Squared error: ',mean(rf_NEE_CV$mse))
+paste('Root Mean Squared error: ',mean(sqrt(rf_NEE_CV$mse)))
 
-## Compute the Minimal Depth
-varsel_NEE <- var.select(rf_NEE)
-gg_md <- gg_minimal_depth(varsel_NEE)
-plot(gg_md)
+#Plot observation vs. prediction
+ggplot(result)+
+  geom_point(aes(x=actual,y=predicted,color=predicted-actual),alpha=0.7)+
+  ggtitle('Plotting Error')+
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme_bw(base_size = 12, base_family = "Helvetica") 
 
 #7. Map with the location of the fluxnet sites
 
