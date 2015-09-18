@@ -154,10 +154,14 @@ gg3<-ggplot(predVals, aes(x, lower, upper)) +
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   # ylim(0,3000)+
   scale_size(range = c(3, 8)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg3)
 
 # 2.2 GPP Harvest
@@ -187,12 +191,15 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,3000)+
-  scale_size(range = c(3, 6)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  theme(legend.position="bottom", legend.direction="horizontal"), legend.title=element_text(position="top"))+
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg4)
 
 # 2.3 Reco Harvest
@@ -222,11 +229,15 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,3000)+
-  scale_size(range = c(3, 6)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg5)
 
 # 2.4 Ratio GPP/Reco Harvest
@@ -255,20 +266,24 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
-  ylim(0,2.5)+
-  scale_size(range = c(3, 6)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  ylim(0,2)+
+  scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  geom_hline(yintercept=1, linetype="dashed", colour="grey", size=0.8)
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  geom_hline(yintercept=1, linetype="dashed", colour="grey", size=0.8)+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg6)
 
 # 2.5 NEP Fire
 
 # Compute the best fit function
-Fun_NEP_Fire<-nls(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data=NEP_High_Fire, 
-                  start = list(A=1000, B=0.170, k= -0.00295))
+Fun_NEP_Fire<-nls(values ~ A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=NEP_High_Fire, 
+                  start = list(A=0.004, B=-0.7, C= 25, D=300))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_NEP_Fire), interval = 'confidence', level = 0.95)
@@ -292,10 +307,14 @@ gg7<-ggplot(predVals, aes(x, lower, upper)) +
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   # ylim(0,3000)+
   scale_size(range = c(3, 8)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg7)
 
 # 2.6 GPP Fire
@@ -326,10 +345,14 @@ gg8<-ggplot(predVals, aes(x, lower, upper)) +
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,3000)+
   scale_size(range = c(3, 8)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg8)
 
 # 2.7 Reco Fire
@@ -360,10 +383,14 @@ gg9<-ggplot(predVals, aes(x, lower, upper)) +
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,3000)+
   scale_size(range = c(3, 8)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg9)
 
 # 2.8 Ratio GPP/Reco Fire
@@ -388,17 +415,20 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg10<-ggplot(predVals, aes(x, lower, upper)) +
   geom_line(aes(y = fit), colour="black", linetype="dashed")+
   geom_ribbon(aes(ymin=lower, ymax=upper), colour=NA,alpha=0.2)+
-  geom_point(data = Ratio_High_Fire, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), alpha=0.7, inherit.aes = FALSE)+
+    geom_point(data = Ratio_High_Fire, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), alpha=0.7, inherit.aes = FALSE)+
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
-  ylim(0,2.5)+
+  ylim(0,2)+
   scale_size(range = c(3, 8)) +
-  facet_grid(Type_Flux~Disturbance, scales="free_x")+
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  geom_hline(yintercept=1, linetype="dashed", colour="grey", size=0.8)
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal") +
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~Disturbance, scales="free_x")
 print(gg10)
 
 # 2.9.Plot all carbon fluxes plots together
@@ -426,5 +456,5 @@ gH$widths[1:2] <- as.list(maxWidth)
 
 # PLot 
 gg11 <- arrangeGrob(
-  gA, gB, gC, gD, gE, gF, gG, gH, nrow = 2, heights = c(0.5, 0.5))
+  gA, gB, gC, gD, gE, gF, gG, gH, nrow = 3, heights = c(0.5, 0.5))
 print(gg11)
