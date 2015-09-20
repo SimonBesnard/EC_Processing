@@ -14,7 +14,7 @@ library(nls2)
 library (boot)
 library(tidyr)
 library (reshape)
-library (JBTools)
+library (hydroGOF)
 
 #.1.Function fit choice for ecosystem response
 
@@ -88,13 +88,13 @@ ggsave("Latex/Figures/AIC_results.pdf", height = 12, width = 15)
 #Compute the Nash-Sutcliffe Efficiency test
 stat <- function(dat, inds) { 
   fit1 <- try(nls(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = dat[inds,], start = list(A = 1000, B = 0.170, k = -0.00295)), silent=TRUE); 
-  Gamma <- if (inherits(fit1, "nls")) MEF(prediction = predict(fit1), observation = dat$values) else NA;
+  Gamma <- if (inherits(fit1, "nls")) NSE(sim = predict(fit1), obs = dat$values, na.rm=T) else NA;
   fit2 <- try(nls(values~A*Stand_Age^2+B*Stand_Age+C, data = dat[inds,], start = list(A=-0.4, B=50, C= 300)), silent=TRUE); 
-  Second_Poly <- if (inherits(fit2, "nls")) MEF(prediction = predict(fit2), observation = dat$values) else NA; 
+  Second_Poly <- if (inherits(fit2, "nls")) NSE(sim = predict(fit2), obs = dat$values, na.rm=T) else NA; 
   fit3 <- try(nls(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data = dat[inds,], start = list(A=0.02, B=-0.6, C= 50, D=200)), silent=TRUE); 
-  Third_Poly <- if (inherits(fit3, "nls")) MEF(prediction = predict(fit3), observation = dat$values) else NA;
+  Third_Poly <- if (inherits(fit3, "nls")) NSE(sim = predict(fit3), obs = dat$values, na.rm=T) else NA;
   fit4 <- try(nls(values~A*(1-exp(k*Stand_Age)), data = dat[inds,], start = list(A=1500, k= -0.224)), silent=TRUE); 
-  Amiro <- if (inherits(fit4, "nls")) MEF(prediction = predict(fit4), observation = dat$values) else NA;
+  Amiro <- if (inherits(fit4, "nls")) NSE(sim = predict(fit4), obs = dat$values, na.rm=T) else NA;
   c(Gamma, Second_Poly, Third_Poly, Amiro) 
 } 
 
@@ -265,7 +265,7 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = Ratio_High_Harvest, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), alpha=0.7, inherit.aes = FALSE)+
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
-  xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
+  xlab("Year since disturbance") + ylab("Ratio GPP-Reco")+ 
   ylim(0,2)+
   scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
@@ -418,7 +418,7 @@ gg10<-ggplot(predVals, aes(x, lower, upper)) +
     geom_point(data = Ratio_High_Fire, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), alpha=0.7, inherit.aes = FALSE)+
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
-  xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
+  xlab("Year since disturbance") + ylab("Ratio GPP-Reco")+ 
   ylim(0,2)+
   scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
@@ -433,28 +433,40 @@ print(gg10)
 
 # 2.9.Plot all carbon fluxes plots together
 
+#2.9.1 Harvest
+
 # Create an arrange plot object
 gA <- ggplotGrob(gg3)
-gB <- ggplotGrob(gg7)
-gC <- ggplotGrob(gg4)
-gD <- ggplotGrob(gg8)
-gE <- ggplotGrob(gg5)
-gF <- ggplotGrob(gg9)
-gG <- ggplotGrob(gg6)
-gH <- ggplotGrob(gg10)
+gB <- ggplotGrob(gg4)
+gC <- ggplotGrob(gg5)
+gD <- ggplotGrob(gg6)
 
-maxWidth = grid::unit.pmax(gA$widths[1:2], gB$widths[1:2], gC$widths[1:2], gD$widths[1:2], 
-                           gE$widths[1:2], gF$widths[1:2], gG$widths[1:2], gH$widths[1:2])
+maxWidth = grid::unit.pmax(gA$widths[1:2], gB$widths[1:2], gC$widths[1:2], gD$widths[1:2])
 gA$widths[1:2] <- as.list(maxWidth)
 gB$widths[1:2] <- as.list(maxWidth)
 gC$widths[1:2] <- as.list(maxWidth)
 gD$widths[1:2] <- as.list(maxWidth)
-gE$widths[1:2] <- as.list(maxWidth)
-gF$widths[1:2] <- as.list(maxWidth)
-gG$widths[1:2] <- as.list(maxWidth)
-gH$widths[1:2] <- as.list(maxWidth)
 
 # PLot 
 gg11 <- arrangeGrob(
-  gA, gB, gC, gD, gE, gF, gG, gH, nrow = 3, heights = c(0.5, 0.5))
+  gA, gB, gC, gD, nrow = 2, heights = c(0.5, 0.5))
 print(gg11)
+
+#2.9.1 Harvest
+
+# Create an arrange plot object
+gA <- ggplotGrob(gg7)
+gB <- ggplotGrob(gg8)
+gC <- ggplotGrob(gg9)
+gD <- ggplotGrob(gg10)
+
+maxWidth = grid::unit.pmax(gA$widths[1:2], gB$widths[1:2], gC$widths[1:2], gD$widths[1:2])
+gA$widths[1:2] <- as.list(maxWidth)
+gB$widths[1:2] <- as.list(maxWidth)
+gC$widths[1:2] <- as.list(maxWidth)
+gD$widths[1:2] <- as.list(maxWidth)
+
+# PLot 
+gg12 <- arrangeGrob(
+  gA, gB, gC, gD, nrow = 2, heights = c(0.5, 0.5))
+print(gg12)
