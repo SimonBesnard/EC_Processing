@@ -22,7 +22,7 @@ list <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
 #Loop over the list of files
 Fluxnet_Site <- list()
 for(i in seq_along(list)) {
-  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcOK', 'precip_f', 'Tair_f', 'Tsoil_f','Rg_f', 'SWC1_f', 'SWC2_f'),
+  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcOK', 'precip_f', 'Tair_f', 'Tsoil_f','Rg_f', 'Rn_f', 'LE_f'),
                                           FileName.s=list[i], NcPackage.s = 'RNetCDF')
 }
 
@@ -74,8 +74,8 @@ Sum_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
                     Annual_Preci= sum(precip_f, na.rm=T),
                     Tair=mean(Tair_f, na.rm=T),
                     Tsoil=mean(Tsoil_f, na.rm=T),
-                    SWC1=mean(SWC1_f, na.rm=T),
-                    SWC2=mean(SWC2_f, na.rm=T),
+                    LE=sum(LE_f, na.rm=T),
+                    Rn=sum(Rn_f, na.rm=T),
                     Rg=mean(Rg_f, na.rm=T)))
 
 #Add type of ecosystem, type of climate, type of disturbance and year after disturbance for each sites
@@ -88,35 +88,35 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
   Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
   Sum_Sd_Flux[[i]]$Int_Replacement<- Site_Date$Intensity_Replacement[i]
-  Sum_Sd_Flux[[i]]$SWC<-(Sum_Sd_Flux[[i]]$SWC1 + Sum_Sd_Flux[[i]]$SWC2)/2 
+  Sum_Sd_Flux[[i]]$ET<-Sum_Sd_Flux[[i]]$LE/Sum_Sd_Flux[[i]]$Rn 
 }
 
-#Remove outlier sites (US-Blo, CZ-Bk1, US-DK3, IT_Ro1, IT-Ro2, US_Bn2, US-NC2)
-Sum_Sd_Flux<- Sum_Sd_Flux[-c(28,36,37,49,50,51,53,63)]
+#Remove outlier sites (US-Bn1, US-Bn2, US-Bn3, and US-Me1)
+Sum_Sd_Flux<- Sum_Sd_Flux[-c(50,51,52,61)]
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(127),]# the measurements seems to be an outlier
+dfAll_Sites<-dfAll_Sites[-c(18,127),]# the measurements seem to be outliers
 
 # Remove years missing in each flux site
 dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_NEE),]
 
 # Remove high gap filled fraction
-dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.85,]
+dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
 
 # Restructure dataframe
 dfAll_Sites<-gather(dfAll_Sites, variable, value, -Annual_Preci, -year, 
                     -Ecosystem, -mean_Uncert, -Climate, -Disturbance,
                     -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                    -Tair, -Tsoil, -SWC, -Rg)
+                    -Tair, -Tsoil, -Rg, -Rn, -LE, -ET )
 
 #Reoder column
 dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "value", "Annual_Preci", 
-                            "mean_Uncert", "Tair", "Tsoil","SWC","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
+                            "mean_Uncert", "Tair", "Tsoil","Rg","Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
 
 # Rename head column
 colnames(dfAll_Sites)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                            "mean_Uncert", "Tair", "Tsoil","SWC","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem")
+                            "mean_Uncert", "Tair", "Tsoil","Rg", "Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem")
 
 # Reclassify climate classification
 dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
