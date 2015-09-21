@@ -15,6 +15,7 @@ library (boot)
 library(tidyr)
 library (reshape)
 library (hydroGOF)
+library (minpack.lm)
 
 #.1.Function fit choice for ecosystem response
 
@@ -82,7 +83,6 @@ print(gg1)
 ggsave("Latex/Figures/AIC_results.eps", height = 12, width = 15)
 ggsave("Latex/Figures/AIC_results.pdf", height = 12, width = 15)
 
-
 # 1.2.1. Modelling efficiency
 
 #Compute the Nash-Sutcliffe Efficiency test
@@ -115,7 +115,7 @@ df.stat<-gather(df.stat, values, Function, -Flux)
 gg2<-ggplot(df.stat, aes(x =variable, y = -value)) +
   geom_boxplot() +
   facet_wrap(~ Flux, scales = "free", nrow=2)+
-  xlab("") + ylab("Modelling Efficiency")+
+  xlab("") + ylab("Nash-Sutcliffe Efficiency")+
   theme_bw(base_size = 14, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -129,8 +129,8 @@ source("Function/CI_Est.R")
 # 2.1 NEP Harvest
 
 # Compute the best fit function
-Fun_NEP_Harvest<-nls(values~A*Stand_Age^2+B*Stand_Age+C, data=NEP_High_Harvest,
-                     start = list(A=-0.4, B=50, C= 300))
+Fun_NEP_Harvest<-nls(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=NEP_High_Harvest,
+                     start = list(A=0.02, B=-0.6, C= 50, D=200))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_NEP_Harvest), interval = 'confidence', level = 0.95)
@@ -190,7 +190,7 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
-  ylim(0,3000)+
+  ylim(-1,3000)+
   scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5),
@@ -266,7 +266,7 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Ratio GPP-Reco")+ 
-  ylim(0,2)+
+  ylim(-0.0005,2)+
   scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5),
@@ -396,8 +396,8 @@ print(gg9)
 # 2.8 Ratio GPP/Reco Fire
 
 # Compute the best fit function
-Fun_Ratio_Fire<-nls(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=Ratio_High_Fire,
-                    start = list(A=0.02, B=-0.6, C= 50, D=200))
+Fun_Ratio_Fire<-nls(values ~ A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data=Ratio_High_Fire, 
+                                  start = list(A=0.004, B=-0.7, C= 25, D=300))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_Fire), interval = 'confidence', level = 0.95)
@@ -415,11 +415,11 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg10<-ggplot(predVals, aes(x, lower, upper)) +
   geom_line(aes(y = fit), colour="black", linetype="dashed")+
   geom_ribbon(aes(ymin=lower, ymax=upper), colour=NA,alpha=0.2)+
-    geom_point(data = Ratio_High_Fire, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), alpha=0.7, inherit.aes = FALSE)+
+  geom_point(data = Ratio_High_Fire, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), alpha=0.7, inherit.aes = FALSE)+
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Ratio GPP-Reco")+ 
-  ylim(0,2)+
+  ylim(0,3)+
   scale_size(range = c(3, 8)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5),
@@ -428,7 +428,9 @@ gg10<-ggplot(predVals, aes(x, lower, upper)) +
         legend.box="horizontal") +
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
-  facet_grid(Type_Flux~Disturbance, scales="free_x")
+  facet_grid(Type_Flux~Disturbance, scales="free_x")+
+  geom_hline(yintercept=1, linetype="dashed", colour="grey", size=0.8)
+
 print(gg10)
 
 # 2.9.Plot all carbon fluxes plots together
