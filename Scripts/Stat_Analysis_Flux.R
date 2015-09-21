@@ -13,12 +13,11 @@ library(manipulate)
 library(gridExtra)
 library (bootstrap)
 library(randomForest)
-library(hexbin)
-library(RColorBrewer)
-library(plot3D)
-library(ggRandomForests)
-library(randomForestSRC)
 library (reshape)
+library(GGally)
+library(e1071) 
+library(ROCR)
+
 
 #1 Explain variabilty of the fluxes
 
@@ -46,79 +45,56 @@ NEP_High_Fire<-NEP_High[NEP_High$Disturbance %in% c("Wildfire"),]
 
 # 1. 2. Compute Random Forest on the annual flux
 
+# 1.2.1 Compute R2-squared for linear correlaltion
+
 #Subset the data
 GPP_High<-data.frame(cbind(GPP_High$Site_ID, GPP_High$values, GPP_High$Annual_Preci, GPP_High$Stand_Age,
                            GPP_High$Tair, GPP_High$Tsoil,
-                           GPP_High$Rg))
+                           GPP_High$Rg, GPP_High$Rn, GPP_High$LE, GPP_High$ET))
 
-colnames(GPP_High)<-c("GPP", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg")
+colnames(GPP_High)<-c("Site_ID", "GPP", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg", "Rn", "LE", "ET")
 
 # plot panels for each covariate colored by the logical chas variable.
-dta <- melt(GPP_High, id.vars=c("GPP"))
-
-ggplot(dta, aes(x=GPP, y=value))+
-  geom_point(alpha=.4)+
-  geom_rug(data=dta %>% filter(is.na(value)))+
-  # labs(y="", x=st.labs["GPP"]) +
-  scale_color_brewer(palette="Set2")+
-  facet_wrap(~variable, scales="free_y", ncol=2)+
+gg1<-ggpairs(with(GPP_High, data.frame(GPP, Precipitation, Tair, Tsoil, Rg, Rn, LE, Stand_Age)))+
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  theme_bw(base_size = 12, base_family = "Helvetica") 
+  theme(axis.text.x = element_text(hjust = 1, vjust=-1))+
+  theme_bw(base_size = 12, base_family = "Helvetica")
+print(gg1)
 
-## Create a basic Random Forest
+# 1.2.2. Compute multivariate analysis with Random Forest
 
-# Create Training & Test Sets
+# Create Training dataset
 GPP_High<-na.omit(GPP_High)
-rownames(GPP_High)<-1:nrow(GPP_High)
-rows <- sample(x=1:nrow(GPP_High),size=0.7 *  nrow(GPP_High))
-train <- GPP_High[rows,]
-test <-GPP_High[!rownames(GPP_High) %in% rows,]
+tvec<-unique(GPP_High$Site_ID)
+nruns <- length(tvec)
+crossclass<-sample(nruns,length(tvec),TRUE)
+nobs<-nrow(GPP_High)
+crossPredict<-rep(NA,nobs)
 
-## Create a Random forest with leave one out ID CV
-nobs <- nrow(na.omit(train))
-crossclass <- sample(5,nobs,TRUE)
-crossPredict <- rep(NA,nobs)
-for (i in 1:5) {
-  indtrain<-which(crossclass!=i)
+#Run a RandomForest with leave one out ID CV
+for (i in 1:nruns) {
+  indtrain<-which(GPP_High$Site_ID %in% tvec[crossclass!=i])
   indvalidate<-setdiff(1:nobs,indtrain)
-  rf_GPP_CV<-randomForest(GPP~., data=train[indtrain,], ntree = 1000, importance = T, na.action = "na.omit")
-  crossPredict[indvalidate]<-predict(rf_GPP_CV, train[indvalidate,])
+  rf<-randomForest(formula = GPP ~ Precipitation + Tair + Tsoil + LE + Rn + Stand_Age, data=GPP_High, subset=indtrain, ntree=5000, importance=T)
+  crossPredict[indvalidate]<-predict(rf,GPP_High[indvalidate,])
 }
 
 #Compute correlation
-cor_rf_GPP_CV<-(cor(crossPredict, train$GPP, use='pairwise'))^2
+cor_rf_GPP_CV<-(cor(crossPredict, GPP_High$GPP, use='pairwise'))^2
 
-# Plot variable importance importance .
-var_importance <- data_frame(variable=setdiff(colnames(train), "GPP"),
-                             importance=as.vector(importance(rf_GPP)))
-
-var_importance <- arrange(var_importance, desc(importance))
-var_importance$variable <- factor(var_importance$variable, levels=var_importance$variable)
-
-p <- ggplot(var_importance, aes(x=variable, weight=importance, fill=variable))
-p <- p + geom_bar()
-p <- p + xlab("Demographic Attribute") + ylab("Variable Importance (Mean Decrease in Gini Index)")
-p <- p + scale_fill_discrete(name="Variable Name")
-p + theme(axis.text.x=element_blank(),
-          axis.text.y=element_text(size=12),
-          axis.title=element_text(size=16),
-          plot.title=element_text(size=18),
-          legend.title=element_text(size=16),
-          legend.text=element_text(size=12))+
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  theme_bw(base_size = 12, base_family = "Helvetica") 
+# Plot importance of variable from random forest
+plot(rf, log="y")
+varImpPlot(rf)
 
 ## Model prediction
 
 # Estimate MSE and RMSE
-pred<-predict(object=rf_GPP_CV, newdata=test)
-actual<-test$GPP
+pred<-crossPredict
+actual<-GPP_High$GPP
 result<-data.frame(actual=actual,predicted=pred)
-paste('Function Call: ', rf_GPP_CV$call)
-paste('Mean Squared error: ',mean(rf_GPP_CV$mse))
-paste('Root Mean Squared error: ',mean(sqrt(rf_GPP_CV$mse)))
+paste('Function Call: ', rf$call)
+paste('Mean Squared error: ',mean(rf$mse))
+paste('Root Mean Squared error: ',mean(sqrt(rf$mse)))
 
 #Plot observation vs. prediction
 ggplot(result)+
@@ -126,4 +102,5 @@ ggplot(result)+
   ggtitle('Plotting Error')+
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  theme_bw(base_size = 12, base_family = "Helvetica") 
+  theme_bw(base_size = 12, base_family = "Helvetica")
+
