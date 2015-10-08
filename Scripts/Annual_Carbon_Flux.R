@@ -16,13 +16,14 @@ library (foreach)
 #1. Create a df for all fluxnet sites dataframe
 
 #Open all files
-dir <- file.path(path, 'Fluxnet_Data')
+dir <- file.path(path, 'Fluxnet_Data/Daily')
 list <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
 
 #Loop over the list of files
 Fluxnet_Site <- list()
 for(i in seq_along(list)) {
-  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco','NEE_fqcOK', 'precip_f', 'Tair_f', 'Tsoil_f','Rg_f', 'Rn_f', 'LE_f'),
+  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco',
+                                                             'NEE_fqcOK', 'precip_f', 'Tair_f', 'Tsoil_f','Rg_f', 'Rn_f', 'LE_f'),
                                           FileName.s=list[i], NcPackage.s = 'RNetCDF')
 }
 
@@ -91,12 +92,15 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$ET<-Sum_Sd_Flux[[i]]$LE/Sum_Sd_Flux[[i]]$Rn 
 }
 
-#Remove outlier sites (US-Bn1, US-Bn2, US-Bn3, and US-Me1)
-Sum_Sd_Flux<- Sum_Sd_Flux[-c(50,51,52,61)]
+#Remove outlier sites (AU-Tum, US-Blo, US-Bn1, US-Bn2, US-Bn3, US-DK3: storm in end 2002, US-Me1,)
+Sum_Sd_Flux<- Sum_Sd_Flux[-c(1, 51, 52,53,54, 55, 63)]
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
-dfAll_Sites<-dfAll_Sites[-c(18,127),]# the measurements seem to be outliers
+
+# Remove outliers values
+# sites: CA-Ca1, CA-NS4, CA-OJP, CA-SJ2, SE-Nor, US-NC2 in 2007: severe drought during the growing season
+dfAll_Sites<-dfAll_Sites[-c(12,59,92,124,248, 292),]# the measurements seem to be outliers from the CA-Ca1, CA-NS4, CA-OJP, CA-SJ2, SE-Nor, US-NC2: severe drought in 2007 growing season)
 
 # Remove years missing in each flux site
 dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_NEE),]
