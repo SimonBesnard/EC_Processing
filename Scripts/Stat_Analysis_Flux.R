@@ -15,9 +15,8 @@ library (bootstrap)
 library(randomForest)
 library (reshape)
 library(GGally)
-library(e1071) 
-library(ROCR)
-
+library(caret)
+library (verification)
 
 #1 Explain variabilty of the fluxes
 
@@ -26,36 +25,24 @@ dfAll_Sites<-readRDS("Output/df_Annual_Flux.rds")
 
 #1.1. Subset dataset
 Flux_High<-dfAll_Sites[dfAll_Sites$Int_Replacement %in% c("High"),]
+
+#Subset type of disturbance
 GPP_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
+NEP_High<-Flux_High[Flux_High$Type_Flux %in% c("NEP"),]
 Reco_High<-Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
 Ratio_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
-NEP_High<-Flux_High[Flux_High$Type_Flux %in% c("NEP"),]
-
-# Harvest
-GPP_High_Harvest<-GPP_High[GPP_High$Disturbance %in% c("Harvest"),]
-Reco_High_Harvest<-Reco_High[Reco_High$Disturbance %in% c("Harvest"),]
-NEP_High_Harvest<-NEP_High[NEP_High$Disturbance %in% c("Harvest"),]
-Ratio_High_Harvest<-Ratio_High[Ratio_High$Disturbance %in% c("Harvest"),]
-
-#Fire
-GPP_High_Fire<-GPP_High[GPP_High$Disturbance %in% c("Wildfire"),]
-Reco_High_Fire<-Reco_High[Reco_High$Disturbance %in% c("Wildfire"),]
-Ratio_High_Fire<-Ratio_High[Ratio_High$Disturbance %in% c("Wildfire"),]
-NEP_High_Fire<-NEP_High[NEP_High$Disturbance %in% c("Wildfire"),]
 
 # 1. 2. Compute Random Forest on the annual flux
 
 # 1.2.1 Compute R2-squared for linear correlaltion
 
-#Subset the data
-GPP_High<-data.frame(cbind(GPP_High$Site_ID, GPP_High$values, GPP_High$Annual_Preci, GPP_High$Stand_Age,
-                           GPP_High$Tair, GPP_High$Tsoil,
-                           GPP_High$Rg, GPP_High$Rn, GPP_High$LE, GPP_High$ET))
-
-colnames(GPP_High)<-c("Site_ID", "GPP", "Precipitation", "Stand_Age", "Tair", "Tsoil", "Rg", "Rn", "LE", "ET")
+# Transform inf values into NA values
+is.na(NEP_High) <- sapply(NEP_High, is.infinite)
+var<-c("Annual_Preci", "Tair", "Tsoil", "Rg", "Rn", "LE", "ET")
+NEP_High[,var] <- sapply(NEP_High[,var],function(x) ifelse(x==0,NA,x))
 
 # plot panels for each covariate colored by the logical chas variable.
-gg1<-ggpairs(with(GPP_High, data.frame(GPP, Precipitation, Tair, Tsoil, Rg, Rn, LE, Stand_Age)))+
+gg1<-ggpairs(with(NEP_High, data.frame(NEP, Precipitation, Tair, Tsoil, Rn, LE, ET, Stand_Age)))+
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(hjust = 1, vjust=-1))+
   theme_bw(base_size = 12, base_family = "Helvetica")
@@ -63,44 +50,43 @@ print(gg1)
 
 # 1.2.2. Compute multivariate analysis with Random Forest
 
-# Create Training dataset
-GPP_High<-na.omit(GPP_High)
-tvec<-unique(GPP_High$Site_ID)
-nruns <- length(tvec)
-crossclass<-sample(nruns,length(tvec),TRUE)
-nobs<-nrow(GPP_High)
-crossPredict<-rep(NA,nobs)
+# Create training and test dataset
+NEP_High<-na.omit(NEP_High)
+subs <- unique(NEP_High$Site_ID)
+train<- vector(mode = "list", length = length(subs))
+test<- vector(mode = "list", length = length(subs))
 
-#Run a RandomForest with leave one out ID CV
-for (i in 1:nruns) {
-  indtrain<-which(GPP_High$Site_ID %in% tvec[crossclass!=i])
-  indvalidate<-setdiff(1:nobs,indtrain)
-  rf<-randomForest(formula = GPP ~ Precipitation + Tair + Tsoil + LE + Rn + Stand_Age, data=GPP_High, subset=indtrain, ntree=5000, importance=T)
-  crossPredict[indvalidate]<-predict(rf,GPP_High[indvalidate,])
-}
+# Run a RandomForest with leave one out ID CV and Predict the outcome of the testing data
+predicted <- NULL
+for(i in seq_along(subs)){
+  train[[i]] <- subset(NEP_High[NEP_High$Site_ID != subs[i],])
+  rf <- randomForest(values~ Annual_Preci + Tair + Tsoil + Rg + Stand_Age + Disturbance, data=train[[i]],
+                     ntree=5000, keep.forest=T, importance=T)
+  test[[i]] <- subset(NEP_High[NEP_High$Site_ID == subs[i],])
+  predicted[[i]] <- predict(rf, newdata=test[[i]])
+  }
 
-#Compute correlation
-cor_rf_GPP_CV<-(cor(crossPredict, GPP_High$GPP, use='pairwise'))^2
+# Compute R-squared estimates
+predi<-melt(predicted)
+actual <- NEP_High$values
+rsq <- 1-sum((actual-predi$value)^2)/sum((actual-mean(actual))^2)
+print(rsq)
 
 # Plot importance of variable from random forest
-plot(rf, log="y")
-varImpPlot(rf)
+imp<-varImp(rf, useModel = T)
 
 ## Model prediction
 
 # Estimate MSE and RMSE
-pred<-crossPredict
-actual<-GPP_High$GPP
-result<-data.frame(actual=actual,predicted=pred)
-paste('Function Call: ', rf$call)
-paste('Mean Squared error: ',mean(rf$mse))
-paste('Root Mean Squared error: ',mean(sqrt(rf$mse)))
+pred<-predi
+actual<-NEP_High$values
+result<-data.frame(Observation=actual,Prediction=pred)
 
 #Plot observation vs. prediction
-ggplot(result)+
-  geom_point(aes(x=actual,y=predicted,color=predicted-actual),alpha=0.7)+
-  ggtitle('Plotting Error')+
+gg2<-ggplot(result)+
+  geom_point(aes(x=Observation,y=Prediction.value))+
   theme(panel.grid.minor = element_line(colour="grey", size=0.5)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   theme_bw(base_size = 12, base_family = "Helvetica")
-
+print(gg2)
+ggsave("Latex/Figures/Model_pred_NEP.eps", height = 12, width = 15)
