@@ -12,7 +12,6 @@ library(gridExtra)
 library (car)
 library (lme4)
 
-
 #1 Explain variabilty of the fluxes
 
 # Import dataframe
@@ -35,95 +34,58 @@ Reco_High<-Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
 #Ratio GPP-Reco
 Ratio_High<-Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
 
-# 1. 2. Compute ANOVA for type of disturbance
+# 1.2 Compute ANOVA and forward stepwise regresion for climate variables type of disturbance and stand age
 
 # 1.2.1 NEP
 
-#Boxplot and interactions plots
-attach(NEP_High)
-boxplot(values~Disturbance)
-interaction.plot(Stand_Age, Disturbance, values)
-
 #Perform Anova
-lm1 <- lm(values~ Disturbance, data=NEP_High) 
+lm1 <- lm(values~ Annual_Preci + Tair + Stand_Age + Disturbance, data=NEP_High) 
 Anova_NEP<-aov(lm1)
 summary(Anova_NEP)
+
+# Forward stepwise regresion 
+lm1 <- lm(values~ Stand_Age+ Tair + Annual_Preci + Disturbance, data=NEP_High) 
+fwd.NEP<-step(lm1, direction="both")
+summary(fwd.NEP)
+summary(fwd.NEP)$r.squared
 
 # 1.2.2 GPP
 
-#Boxplot and interactions plots
-attach(GPP_High)
-boxplot(values~Disturbance)
-interaction.plot(Stand_Age, Disturbance, values)
-
 #Perform Anova
-lm1 <- lm(values~ Disturbance*Stand_Age, data=GPP_High) 
+lm1 <- lm(values~ Annual_Preci + Tair + Stand_Age + Disturbance, data=GPP_High) 
 Anova_GPP<-aov(lm1)
 summary(Anova_GPP)
+
+# Forward stepwise regresion 
+lm1 <- lm(values~ Stand_Age+ Tair + Annual_Preci + Disturbance, data=GPP_High) 
+fwd.GPP<-step(lm1, direction="both")
+summary(fwd.GPP)
+summary(fwd.GPP)$r.squared
 
 # 1.2.3 Respiration
 
-#Boxplot and interactions plots
-attach(Reco_High)
-boxplot(values~Disturbance)
-interaction.plot(Stand_Age, Disturbance, values)
-
 #Perform Anova
-lm1 <- lm(values~ Disturbance*Stand_Age, data=Reco_High) 
+lm1 <- lm(values~ Annual_Preci + Tair + Stand_Age + Disturbance, data=Reco_High) 
 Anova_Reco<-aov(lm1)
 summary(Anova_Reco)
+
+# Forward stepwise regresion 
+lm1 <- lm(values~ Stand_Age+ Tair + Annual_Preci + Disturbance, data=Reco_High) 
+fwd.Reco<-step(lm1, direction="both")
+summary(fwd.Reco)
+summary(fwd.Reco)$r.squared
 
 # 1.2.4. Ratio GPP-Reco
 
-#Boxplot and interactions plots
-attach(Ratio_High)
-boxplot(values~Disturbance)
-interaction.plot(Stand_Age, Disturbance, values)
-
 #Perform Anova
-lm1 <- lm(values~ Disturbance*Stand_Age, data=Ratio_High) 
+lm1 <- lm(values~ Annual_Preci + Tair + Stand_Age + Disturbance, data=Ratio_High) 
 Anova_Ratio<-aov(lm1)
 summary(Anova_Ratio)
 
-# 1.3 Compute ANOVA for climate variables
-
-# 1.3.1 NEP
-
-#Perform Anova
-lm1 <- lm(values~ Annual_Preci + Tair + Stand_Age, data=NEP_High) 
-Anova_NEP<-aov(lm1)
-summary(Anova_NEP)
-
-# 1.3.2 GPP
-
-#Perform Anova
-lm1 <- lm(values~ Disturbance*Stand_Age, data=GPP_High) 
-Anova_GPP<-aov(lm1)
-summary(Anova_GPP)
-
-# 1.3.3 Respiration
-
-#Perform Anova
-lm1 <- lm(values~ Disturbance*Stand_Age, data=Reco_High) 
-Anova_Reco<-aov(lm1)
-summary(Anova_Reco)
-
-# 1.3.4. Ratio GPP-Reco
-
-#Perform Anova
-nls(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = Ratio_High, 
-    start = list(A = 100, B = 0.170, k = -0.00295))
-
-f1<- function(x) {0.384394*(x^0.341429)*(exp(-0.004749 *x))}
-lm1 <- lm(values~ Annual_Preci + Tair + Stand_Age, data=Ratio_High)
-Anova_Ratio<-aov(lm1)
-summary(Anova_Ratio)
-
-df<-Ratio_High
-df<-df[c("values", "Annual_Preci", "Tair", "Stand_Age")]
-colnames(df)<- c("Y", "P", "TA", "A")
-df<-df[c(1:10),]
-
-dput(df)
+# Forward stepwise regresion 
+lm1 <- lm(values~ Stand_Age+ Tair + Annual_Preci + Disturbance, data=Ratio_High) 
+fwd.Ratio<-step(lm1, direction="both")
+summary(fwd.Ratio)
+summary(fwd.Ratio)$r.squared
 
 
