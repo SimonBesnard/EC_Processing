@@ -61,11 +61,8 @@ bootswiss <- boot.relimp(values~ Annual_Preci + f_P_NEP(Annual_Preci) + Tair + f
                          type = "lmg",
                          rank = TRUE, diff = TRUE, rela = TRUE)
 print(booteval.relimp(bootswiss))
-
-pdf("Latex/Figures/VarImp_NEP.eps", width = 15, height = 12) # Open a new pdf file
 plot(booteval.relimp(bootswiss, bty="perc",
                      sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
-dev.off() # Close the file
 
 # 1.3 Analysis for GPP
 
@@ -90,12 +87,8 @@ bootswiss <- boot.relimp(values~ Annual_Preci + f_P_GPP(Annual_Preci) + Tair + f
                          type = "lmg",
                          rank = TRUE, diff = TRUE, rela = TRUE)
 print(booteval.relimp(bootswiss))
-
-pdf("Latex/Figures/VarImp_GPP.eps", width = 15, height = 12) # Open a new pdf file
 plot(booteval.relimp(bootswiss, bty="perc",
                      sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
-dev.off() # Close the file
-
 # 1.4 Analysis for Reco
 
 #Compute transform function
@@ -119,11 +112,8 @@ bootswiss <- boot.relimp(values~ Annual_Preci + f_P_Reco(Annual_Preci) + Tair + 
                          type = "lmg",
                          rank = TRUE, diff = TRUE, rela = TRUE)
 print(booteval.relimp(bootswiss))
-
-pdf("Latex/Figures/VarImp_Reco.eps", width = 15, height = 12) # Open a new pdf file
 plot(booteval.relimp(bootswiss, bty="perc",
                      sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
-dev.off() # Close the file
 
 # 1.5 Analysis for Ratio GPP-Reco
 
@@ -148,11 +138,8 @@ bootswiss <- boot.relimp(values~ Annual_Preci + f_P_Ratio_GPP_Reco(Annual_Preci)
                          type = "lmg",
                          rank = TRUE, diff = TRUE, rela = TRUE)
 print(booteval.relimp(bootswiss))
-
-pdf("Latex/Figures/VarImp_Ratio_GPP_Reco.eps", width = 15, height = 12) # Open a new pdf file
 plot(booteval.relimp(bootswiss, bty="perc",
                      sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
-dev.off() # Close the file
 
 # 1.5 Analysis for Ratio NEP-GPP
 
@@ -176,11 +163,8 @@ bootswiss <- boot.relimp(values~ Annual_Preci + f_P_Ratio_NEP_GPP(Annual_Preci) 
                          type = "lmg",
                          rank = TRUE, diff = TRUE, rela = TRUE)
 print(booteval.relimp(bootswiss))
-
-pdf("Latex/Figures/VarImp_Ratio_NEP_GPP.eps", width = 15, height = 12) # Open a new pdf file
 plot(booteval.relimp(bootswiss, bty="perc",
                      sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
-dev.off() # Close the file
 
 # 1.6. Plot relative contribution output
 
@@ -258,21 +242,151 @@ pdf("Latex/Figures/VarImp_Flux.eps", width = 15, height = 12) # Open a new pdf f
 grid.arrange(gg1, gg2, gg3, gg4, gg5, nrow=2) # Write the grid.arrange in the file
 dev.off() # Close the file
 
-# 2. Compute residual of fitted model vs. climate variables for ratio GPP-Reco
+# 2. Compute residual of fitted model vs. climate variables
+
+# 2.1 NEP
+
+# Compute residual
+NEP$Res<- residuals(Fun_NEP)
+NEP$Annual_Preci[NEP$Annual_Preci == 0] <- NA
+
+#Plot residuals
+R2_Tair<-(cor(residuals(Fun_NEP), NEP$Tair))^2
+R2_Preci<-(cor(residuals(Fun_NEP), NEP$Annual_Preci, use="pairwise.complete.obs"))^2
+
+gg1 <- ggplot(data = NEP, aes(x = Tair, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Air temperature (°C)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.15", x = -3, y = 300) +
+  facet_wrap(~Type_Flux)
+
+gg2 <- ggplot(data = NEP, aes(x = Annual_Preci, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Precipitation (mm)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.11", x = 200, y = 300) +
+  facet_wrap(~Type_Flux)
+
+# 2.2 GPP
+
+# Compute residual
+GPP$Res<- residuals(Fun_GPP)
+GPP$Annual_Preci[GPP$Annual_Preci == 0] <- NA
+
+#Plot residuals
+R2_Tair<-(cor(residuals(Fun_GPP), GPP$Tair, use="pairwise.complete.obs"))^2
+R2_Preci<-(cor(residuals(Fun_GPP), GPP$Annual_Preci, use="pairwise.complete.obs"))^2
+
+gg3 <- ggplot(data = GPP, aes(x = Tair, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Air temperature (°C)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.34", x = -3, y = 800) +
+  facet_wrap(~Type_Flux)
+
+gg4 <- ggplot(data = GPP, aes(x = Annual_Preci, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Precipitation (mm)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.36", x = 200, y = 800) +
+  facet_wrap(~Type_Flux)
+
+# 2.3 Reco
+
+# Compute residual
+Reco$Res<- residuals(Fun_Reco)
+Reco$Annual_Preci[Reco$Annual_Preci == 0] <- NA
+
+#Plot residuals
+R2_Tair<-(cor(residuals(Fun_Reco), Reco$Tair, use="pairwise.complete.obs"))^2
+R2_Preci<-(cor(residuals(Fun_Reco), Reco$Annual_Preci, use="pairwise.complete.obs"))^2
+
+gg5 <- ggplot(data = Reco, aes(x = Tair, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Air temperature (°C)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.30", x = -3, y = 800) +
+  facet_wrap(~Type_Flux)
+
+gg6 <- ggplot(data = Reco, aes(x = Annual_Preci, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Precipitation (mm)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.35", x = 200, y = 800) +
+  facet_wrap(~Type_Flux)
+
+# 2.4 Ratio GPP-Reco
+levels(Ratio_GPP_Reco$Type_Flux) <- c("NEE", "GPP", "Respiration", "NEP", "Ratio GPP-Reco", "Ratio NEP-GPP", "Ratio GPP-NEP")
 
 # Compute residual
 Ratio_GPP_Reco$Res<- residuals(Fun_Ratio_GPP_Reco)
+Ratio_GPP_Reco$Annual_Preci[Ratio_GPP_Reco$Annual_Preci == 0] <- NA
 
 #Plot residuals
-R2<-(cor(residuals(Fun_Ratio_GPP_Reco), Ratio_GPP_Reco$Tair))^2
-p <- ggplot(data = Ratio_GPP_Reco, aes(x = Tair, y = Res)) +
+R2_Tair<-(cor(residuals(Fun_Ratio_GPP_Reco), Ratio_GPP_Reco$Tair, use="pairwise.complete.obs"))^2
+R2_Preci<-(cor(residuals(Fun_Ratio_GPP_Reco), Ratio_GPP_Reco$Annual_Preci, use="pairwise.complete.obs"))^2
+
+gg7 <- ggplot(data = Ratio_GPP_Reco, aes(x = Tair, y = Res)) +
   geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
   geom_point()+
-  theme_bw(base_size = 16, base_family = "Helvetica")+
-  xlab("Air temperature")+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Air temperature (°C)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R2 = 0.14", x = -2, y = .4)
-ggsave(filename = "Latex/Figures/Res_GPP_Reco_Tair.eps", p)
+  annotate("text", label = "R2 = 0.14", x = -3, y = 0.4) +
+  facet_wrap(~Type_Flux)
 
+gg8 <- ggplot(data = Ratio_GPP_Reco, aes(x = Annual_Preci, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Precipitation (mm)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.12", x = 200, y = 0.4) +
+  facet_wrap(~Type_Flux)
 
+# 2.5 Ratio NEP-GPP
 
+# Compute residual
+Ratio_NEP_GPP$Res<- residuals(Fun_Ratio_NEP_GPP)
+Ratio_NEP_GPP$Annual_Preci[Ratio_NEP_GPP$Annual_Preci == 0] <- NA
+
+#Plot residuals
+R2_Tair<-(cor(residuals(Fun_Ratio_NEP_GPP), Ratio_NEP_GPP$Tair, use="pairwise.complete.obs"))^2
+R2_Preci<-(cor(residuals(Fun_Ratio_NEP_GPP), Ratio_NEP_GPP$Annual_Preci, use="pairwise.complete.obs"))^2
+levels(Ratio_NEP_GPP$Type_Flux) <- c("NEE", "GPP", "Respiration", "NEP", "Ratio GPP-Reco", "Ratio NEP-GPP", "Ratio GPP-NEP")
+
+gg9 <- ggplot(data = Ratio_NEP_GPP, aes(x = Tair, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Air temperature (°C)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.20", x = -3, y = 0.3) +
+  facet_wrap(~Type_Flux)
+
+gg10 <- ggplot(data = Ratio_NEP_GPP, aes(x = Annual_Preci, y = Res)) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)+
+  geom_point()+
+  theme_bw(base_size = 12, base_family = "Helvetica")+
+  xlab("Precipitation (mm)")+
+  ylab("Residual fitted model")+
+  annotate("text", label = "R2 = 0.16", x = 200, y = 0.3) +
+  facet_wrap(~Type_Flux)
+
+# 2.6 Plot all graphs together
+pdf("Latex/Figures/Residual_Flux.eps", width = 15, height = 12) # Open a new pdf file
+grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, gg7, gg8, gg9, gg10, nrow=5) # Write the grid.arrange in the file
+dev.off() # Close the file
