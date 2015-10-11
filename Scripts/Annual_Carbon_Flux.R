@@ -31,21 +31,13 @@ for(i in seq_along(list)) {
 #Open csv file with flux site metadata
 Site_Date<-read.csv("Input/Potential_Sites.csv", header = TRUE)
 
-# Convert Datetime into a Date object
+# 2.1 Convert Datetime into a Date object
 for (i in seq_along(Fluxnet_Site)){
   Fluxnet_Site[[i]]$DateTime=as.Date(Fluxnet_Site[[i]]$DateTime)
 }
 
-# 2.1. Option 1: Remove data before disturbance from the list of dataframe
-# Convert date of disturbance into a date object
-#Site_Date$Date_Disturbance<- as.Date(Site_Date$Date_Disturbance)
+# 2.2. Remove data before plantation from the list of dataframe
 
-#Remove data before disturbance
-# for (i in seq_along(Fluxnet_Site)){
-# Fluxnet_Site[[i]]<-with(Fluxnet_Site[[i]], Fluxnet_Site[[i]][(Fluxnet_Site[[i]]$DateTime > Site_Date$Date_Disturbance[i]),])
-# }
-
-# 2.2. Option 2: Remove data before plantation from the list of dataframe
 # Convert date of plantation into a date object
 Site_Date$Plantation_Date<- as.Date(Site_Date$Plantation_Date)
 
@@ -63,14 +55,6 @@ Sum_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
                     GPP= sum(GPP_f, na.rm=T),
                     Respiration= sum(Reco,na.rm=T),
                     NEP=sum(-NEE_f, na.rm=T),
-                    mean_NEE= mean(NEE_f, na.rm=T),
-                    mean_GPP= mean(GPP_f, na.rm=T),
-                    mean_TER= mean(Reco,na.rm=T),
-                    mean_NEP= mean(-NEE_f, na.rm=T),
-                    sd_NEE= sd(NEE_f, na.rm=T),
-                    sd_GPP= sd(GPP_f, na.rm=T),
-                    sd_Reco= sd(Reco, na.rm=T),
-                    sd_NEP= sd(-NEE_f, na.rm=T),
                     mean_Uncert=mean(NEE_fqcOK, na.rm=T), 
                     Annual_Preci= sum(precip_f, na.rm=T),
                     Tair=mean(Tair_f, na.rm=T),
@@ -86,24 +70,26 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
   Sum_Sd_Flux[[i]]$Stand_Age<- Sum_Sd_Flux[[i]]$year- year(as.Date(Site_Date$Plantation_Date[i]))
   Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$GPP / Sum_Sd_Flux[[i]]$Respiration
+  Sum_Sd_Flux[[i]]$NEP_GPP<- Sum_Sd_Flux[[i]]$NEP / Sum_Sd_Flux[[i]]$GPP
+  Sum_Sd_Flux[[i]]$GPP_NEP<- Sum_Sd_Flux[[i]]$GPP / Sum_Sd_Flux[[i]]$NEP
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
-  Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
+  Sum_Sd_Flux[[i]]$Study<- Site_Date$Study[i]
+    Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
   Sum_Sd_Flux[[i]]$Int_Replacement<- Site_Date$Intensity_Replacement[i]
   Sum_Sd_Flux[[i]]$ET<-Sum_Sd_Flux[[i]]$LE/Sum_Sd_Flux[[i]]$Rn 
 }
-
-#Remove outlier sites (AU-Tum, US-Blo, US-Bn1, US-Bn2, US-Bn3, US-DK3: storm in end 2002, US-Me1,)
-Sum_Sd_Flux<- Sum_Sd_Flux[-c(1, 51, 52,53,54, 55, 63)]
 
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 
 # Remove outliers values
-# sites: CA-Ca1, CA-NS4, CA-OJP, CA-SJ2, SE-Nor, US-NC2 in 2007: severe drought during the growing season
-dfAll_Sites<-dfAll_Sites[-c(12,59,92,124,248, 292),]# the measurements seem to be outliers from the CA-Ca1, CA-NS4, CA-OJP, CA-SJ2, SE-Nor, US-NC2: severe drought in 2007 growing season)
+# sites: BE-Bra (2000: thinning), CA-Ca1 (1997: disturbance occured), CA-Ca2 (2000/2001: forest not planted yet) CA-NS4 (2002: disturbance occured), CA-NS6 (2001), 
+#CA-OJP (1999: disturbance occured), CA-SJ2 (2003\2004: outlier for GPP values), NL-Loo (2006: storm), SE-Nor (2005: thinning occured this year), US-Nc2 (2006: insect attack), US-SP1 (2005: storm), 
+#US-SP3 (2000: storm), US-Wcr (2002: insect attack)
+dfAll_Sites<-dfAll_Sites[-c(10, 18, 27, 28, 65, 73, 98, 129, 130, 236, 254, 318, 325, 333, 346),]
 
 # Remove years missing in each flux site
-dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_NEE),]
+dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_Uncert),]
 
 # Remove high gap filled fraction
 dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
@@ -112,20 +98,15 @@ dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
 dfAll_Sites<-gather(dfAll_Sites, variable, value, -Annual_Preci, -year, 
                     -Ecosystem, -mean_Uncert, -Climate, -Disturbance,
                     -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                    -Tair, -Tsoil, -Rg, -Rn, -LE, -ET )
+                    -Tair, -Tsoil, -Rg, -Rn, -LE, -ET, -Study )
 
 #Reoder column
 dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "value", "Annual_Preci", 
-                            "mean_Uncert", "Tair", "Tsoil","Rg","Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem")]
+                            "mean_Uncert", "Tair", "Tsoil","Rg","Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study")]
 
 # Rename head column
 colnames(dfAll_Sites)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                            "mean_Uncert", "Tair", "Tsoil","Rg", "Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem")
-
-# Reclassify climate classification
-dfAll_Sites$Climate<-ifelse((dfAll_Sites$Climate =="Af" | dfAll_Sites$Climate =="Am"), "Tropical",
-                    ifelse((dfAll_Sites$Climate =="Cfa" | dfAll_Sites$Climate =="Cfb" | dfAll_Sites$Climate =="Cfc" | dfAll_Sites$Climate =="Csa" | dfAll_Sites$Climate =="Csb"), "Temperate",
-                           ifelse((dfAll_Sites$Climate =="Dfb" | dfAll_Sites$Climate =="Dfc" | dfAll_Sites$Climate =="Dsc"), "Continental", NA)))
+                            "mean_Uncert", "Tair", "Tsoil","Rg", "Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study")
 
 # Save dataframe in a rds file
 saveRDS(dfAll_Sites, file="Output/df_Annual_Flux.rds")
