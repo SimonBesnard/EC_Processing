@@ -74,9 +74,12 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$GPP_NEP<- Sum_Sd_Flux[[i]]$GPP / Sum_Sd_Flux[[i]]$NEP
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
   Sum_Sd_Flux[[i]]$Study<- Site_Date$Study[i]
-    Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
+  Sum_Sd_Flux[[i]]$Stand_Replacement<- Site_Date$Stand_Replacement[i]
   Sum_Sd_Flux[[i]]$Int_Replacement<- Site_Date$Intensity_Replacement[i]
-  Sum_Sd_Flux[[i]]$ET<-Sum_Sd_Flux[[i]]$LE/Sum_Sd_Flux[[i]]$Rn 
+  Sum_Sd_Flux[[i]]$ET<-Sum_Sd_Flux[[i]]$LE/Sum_Sd_Flux[[i]]$Rn
+  Sum_Sd_Flux[[i]]$Lat<- Site_Date$x[i]
+  Sum_Sd_Flux[[i]]$Long<- Site_Date$y[i]
+  
 }
 
 #Combine the flux sites in one dataframe
@@ -98,15 +101,15 @@ dfAll_Sites<- dfAll_Sites[dfAll_Sites$mean_Uncert>0.80,]
 dfAll_Sites<-gather(dfAll_Sites, variable, value, -Annual_Preci, -year, 
                     -Ecosystem, -mean_Uncert, -Climate, -Disturbance,
                     -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                    -Tair, -Tsoil, -Rg, -Rn, -LE, -ET, -Study )
+                    -Tair, -Tsoil, -Rg, -Rn, -LE, -ET, -Study, -Lat, -Long )
 
 #Reoder column
 dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "value", "Annual_Preci", 
-                            "mean_Uncert", "Tair", "Tsoil","Rg","Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study")]
+                            "mean_Uncert", "Tair", "Tsoil","Rg","Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
 
 # Rename head column
 colnames(dfAll_Sites)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                            "mean_Uncert", "Tair", "Tsoil","Rg", "Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study")
+                            "mean_Uncert", "Tair", "Tsoil","Rg", "Rn", "LE", "ET", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
 # Save dataframe in a rds file
 saveRDS(dfAll_Sites, file="Output/df_Annual_Flux.rds")
