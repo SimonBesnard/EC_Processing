@@ -34,6 +34,14 @@ Reco<- Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
 Ratio_NEP_GPP<- Flux_High[Flux_High$Type_Flux %in% c("NEP_GPP"),]
 Ratio_GPP_Reco<- Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
 
+#Compute GPPmax based on the lieth model
+params <- c(GPP15= 1923, GPP1000=1827, a1=242, a2=0.049, k=-0.00025)
+GPP$GPPmat<-with(as.list(params), GPP15*((1+exp(a1-a2*15))/(1+exp(a1-a2*GPP$Tair))))
+GPP$GPPp<-with(as.list(params), GPP1000*((1-exp(-k*GPP$Annual_Preci))/(1-exp(-k*1000))))
+GPP<-transform(GPP, GPPmax = pmin(GPPmat, GPPp))
+GPP$GPPmax[GPP$GPPmax == 0] <- NA
+GPP$Scalar<- GPP$values/GPP$GPPmax
+
 # Create dataset mean per site
 NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
                           summarise,
@@ -69,6 +77,8 @@ Ratio_GPP_Reco_Mean_Site<-ddply(Ratio_GPP_Reco, .(Site_ID, Type_Flux),
                      values=mean(values, na.rm=T),
                      Precipitation=mean(Annual_Preci, na.rm=T),
                      Tair=mean(Tair, na.rm=T))
+
+
 
 # 1.2 Test the best fitting function to ecosystem response - Modelling efficiency (Nash-Sutcliffe Efficiency test)
 
@@ -109,17 +119,17 @@ source("Function/CI_Est.R")
 # 2.1 NEP
 
 # Compute the best fit function
-Fun_NEP<-nls(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data = NEP_Mean_Site, 
+Fun_NEP<-nls(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age+D, data = NEP, 
              start = list(A=0.02, B=-0.6, C= 50, D=200))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_NEP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(NEP_Mean_Site$Stand_Age),max(NEP$Stand_Age),length=50)
-pred1 <- approx(NEP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
-pred2 <- approx(NEP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
-pred3 <- approx(NEP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+x <- seq(min(NEP$Stand_Age),max(NEP$Stand_Age),length=50)
+pred1 <- approx(NEP$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(NEP$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(NEP$Stand_Age, predCI[, 3], xout = x) ## upper CI
 
 # Put this into a data frame
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
@@ -129,7 +139,7 @@ gg2<-ggplot(predVals, aes(x, lower, upper)) +
   geom_line(aes(y = fit), colour="black", size=0.8)+
   geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
   geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  geom_point(data = NEP_Mean_Site, aes(x = Stand_Age, y = values, size=Precipitation, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = NEP, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
@@ -146,18 +156,22 @@ gg2<-ggplot(predVals, aes(x, lower, upper)) +
 
 # 2.2 GPP
 
+# Add artificial values to GPP
+newrow = list(NA, NA, NA, NA, "GPP", numeric(1), NA, NA, NA, NA, NA, NA, NA, NA, numeric(1), NA, NA, NA, NA, NA, NA)
+
 # Compute the best fit function
-Fun_GPP<-nls(values~A*Stand_Age^2+B*Stand_Age+C, data = GPP_Mean_Site, 
-             start = list(A=-0.4, B=50, C= 300))
+GPP<-rbind(newrow, GPP)
+Fun_GPP<-nls(values~A*Stand_Age^2+B*Stand_Age, data = GPP, 
+             start = list(A=-0.4, B=50))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_GPP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(GPP_Mean_Site$Stand_Age),max(GPP_Mean_Site$Stand_Age),length=50)
-pred1 <- approx(GPP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
-pred2 <- approx(GPP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
-pred3 <- approx(GPP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+x <- seq(min(GPP$Stand_Age),max(GPP$Stand_Age),length=50)
+pred1 <- approx(GPP$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(GPP$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
 
 # Put this into a data frame
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
@@ -167,7 +181,7 @@ gg3<-ggplot(predVals, aes(x, lower, upper)) +
   geom_line(aes(y = fit), colour="black", size=0.8)+
   geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
   geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  geom_point(data = GPP_Mean_Site, aes(x = Stand_Age, y = values, size=Precipitation, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = GPP, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
@@ -185,17 +199,17 @@ gg3<-ggplot(predVals, aes(x, lower, upper)) +
 # 2.3 Reco Harvest
 
 # Compute the best fit function
-Fun_Reco<-nls(values~A*Stand_Age^2+B*Stand_Age+C, data = Reco_Mean_Site, 
+Fun_Reco<-nls(values~A*Stand_Age^2+B*Stand_Age+C, data = Reco, 
              start = list(A=-0.4, B=50, C= 300))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Reco), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Reco_Mean_Site$Stand_Age),max(Reco_Mean_Site$Stand_Age),length=50)
-pred1 <- approx(Reco_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
-pred2 <- approx(Reco_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
-pred3 <- approx(Reco_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+x <- seq(min(Reco$Stand_Age),max(Reco_Mean_Site$Stand_Age),length=50)
+pred1 <- approx(Reco$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Reco$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Reco$Stand_Age, predCI[, 3], xout = x) ## upper CI
 
 # Put this into a data frame
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
@@ -205,7 +219,7 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
   geom_line(aes(y = fit), colour="black", size=0.8)+
   geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
   geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  geom_point(data = Reco_Mean_Site, aes(x = Stand_Age, y = values, size=Precipitation, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = Reco, aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   scale_colour_gradient(low="#00FF33", high ="#FF0000")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Year since disturbance") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
