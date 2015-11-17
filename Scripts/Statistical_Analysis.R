@@ -13,6 +13,10 @@ library (car)
 library (lme4)
 library(relaimpo)
 library (caret)
+library(party)
+library (minpack.lm)
+library (randomUniformForest)
+library (reshape)
 
 #1 Explain variabilty of the fluxes
 
@@ -126,28 +130,29 @@ Fun_Preci<-nlsLM(values~A*(1-exp(-0.000664*Annual_Preci)), data = NEP,
 coef(Fun_Preci)
 f_P_NEP<- function (x) {394.0764*(1-exp(-0.000664*x))}
 
-# 1.2.2 Compute forward/backward stepwise regresion for climate variables type of disturbance and stand age
-# http://topepo.github.io/caret/bytag.html
+# 1.2.2 Compute random forest with climate variables and stand age
 NEPyoung<- subset(NEP, Stand_Age < 50)
 NEPold<- subset(NEP, Stand_Age > 50)
+NEP$f_P<- f_P_NEP(NEP$Annual_Preci)
+NEP$f_Tair<- f_Tair_NEP(NEP$Tair)
+NEP$f_Age<- f_Age_NEP(NEP$Stand_Age)
+NEP<- NEP[c("Site_ID",  "Annual_Preci", "Tair","Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
+NEP<- na.omit(NEP)
+NEP$prediction <- NA
+for(id in unique(NEP$Site_ID)){
+  train.df <- NEP[NEP$Site_ID != id,]
+  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "Rg", "f_P", "f_Tair", "f_Age")]
+  NEP.ruf <- randomUniformForest(values~Annual_Preci+ Tair+ Stand_Age+ Rg + f_P + f_Tair + f_Age, 
+                                data = train.df,
+                                importance = T,
+                                ntree = 2000)
+  NEP.ruf.pred = predict(object = NEP.ruf, X = test.df)
+  NEP$prediction[NEP$Site_ID == id] <- NEP.ruf.pred
+}
 
-fwd.NEP<-train(values ~ (f_P_NEP(Annual_Preci)+Annual_Preci+ Tair+f_Tair_NEP(Tair)+ Stand_Age+f_Age_NEP(Stand_Age)+Rg)^2, data=NEP,
-      preProcess= c("center"),
-      method = "lmStepAIC",
-      trainControl(method="cv",repeats = 10), na.rm=T, 
-      direction = "backward")
-summary(fwd.NEP)
-
-# 1.2.4 Compute relative contribution of predictor variable
-bootswiss <- calc.relimp(values~ Tair + f_Tair_NEP(Tair) + 
-                           f_Age_NEP(Stand_Age) + f_P_NEP(Annual_Preci):f_Tair_NEP(Tair) + f_P_NEP(Annual_Preci):Rg + 
-                           Annual_Preci:f_Tair_NEP(Tair) + Annual_Preci:Stand_Age + 
-                           Annual_Preci:Rg + Tair:Stand_Age + f_Tair_NEP(Tair):Stand_Age + 
-                           f_Tair_NEP(Tair):f_Age_NEP(Stand_Age) + Stand_Age:f_Age_NEP(Stand_Age) + 
-                           Stand_Age:Rg, data=NEP, type="lmg")
-print(bootswiss)
-plot(booteval.relimp(bootswiss, bty="perc",
-                     sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
+summary(NEP.ruf)
+statsModel = model.stats(NEP$prediction, NEP$values, regression = TRUE)
+RMSE_NEP <- (sum((NEP$prediction-NEP$values)^2)/length(NEP$values))^(1/2)
 
 # 1.3 Analysis for GPP
 
@@ -171,27 +176,29 @@ Fun_Preci<-nlsLM(values~A*(1-exp(-0.000664*Annual_Preci)), data = GPP,
 coef(Fun_Preci)
 f_P_GPP<- function (x) {3188.806 *(1-exp(-0.000664*x))}
 
-# 1.3.2 Compute forward/backward stepwise regresion for climate variables type of disturbance and stand age
+# 1.3.2 Compute random forest with climate variables and stand age
 GPPyoung<- subset(GPP, Stand_Age < 50)
 GPPold<- subset(GPP, Stand_Age > 50)
-fwd.GPP <- train(values~ (Annual_Preci+f_P_GPP(Annual_Preci) + Tair+f_Tair_GPP(Tair) + Stand_Age+f_Age_GPP(Stand_Age) + Rg)^2, 
-                 data=GPP,
-                 preProcess= c("center", "scale"),
-                 method = "lmStepAIC",
-                 trainControl(method="cv",repeats = 10), na.rm=T, 
-                 direction = "backward")
-summary(fwd.GPP)
+GPP$f_P<- f_P_GPP(GPP$Annual_Preci)
+GPP$f_Tair<- f_Tair_GPP(GPP$Tair)
+GPP$f_Age<- f_Age_GPP(GPP$Stand_Age)
+GPP<- GPP[ccontrols=cforest_unbiased()("Site_ID",  "Annual_Preci", "Tair","Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
+GPP<- na.omit(GPP)
+GPP$prediction <- NA
+for(id in unique(GPP$Site_ID)){
+  train.df <- GPP[GPP$Site_ID != id,]
+  test.df <- GPP[GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "Rg", "f_P", "f_Tair", "f_Age")]
+  GPP.ruf <- randomUniformForest(values~Annual_Preci+ Tair+ Stand_Age+ Rg + f_P + f_Tair + f_Age, 
+                                 data = train.df,
+                                 importance = T,
+                                 ntree = 2000)
+  GPP.ruf.pred = predict(object = GPP.ruf, X = test.df)
+  GPP$prediction[GPP$Site_ID == id] <- GPP.ruf.pred
+}
 
-# 1.3.3 Compute relative contribution of predictor variable
-bootswiss <- boot.relimp(values~ Annual_Preci + f_P_GPP(Annual_Preci) + 
-                           f_Tair_GPP(Tair) + Stand_Age + f_Age_GPP(Stand_Age) + 
-                           Rg, 
-                         data=GPP, b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-plot(booteval.relimp(bootswiss, bty="perc",
-                     sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
+summary(GPP.ruf)
+statsModel = model.stats(GPP$prediction, GPP$values, regression = TRUE)
+RMSE_GPP <- (sum((GPP$prediction-GPP$values)^2)/length(GPP$values))^(1/2)
 
 # 1.4 Analysis for Reco
 
@@ -215,36 +222,39 @@ Fun_Preci<-nlsLM(values~A*(1-exp(-0.000664*Annual_Preci)), data = Reco,
 coef(Fun_Preci)
 f_P_Reco<- function (x) {2799.827 *(1-exp(-0.000664*x))}
 
-# 1.4.2 Compute forward/backward stepwise regresion for climate variables type of disturbance and stand age
+# 1.4.2 Compute random forest with climate variables and stand age
 Recoyoung<- subset(Reco, Stand_Age < 50)
 Recoold<- subset(Reco, Stand_Age > 50)
-fwd.Reco <- train(values~ (Annual_Preci+f_P_Reco(Annual_Preci) + Tair+f_Tair_Reco(Tair) + Stand_Age+f_Age_Reco(Stand_Age) + Rg)^2,
-                  data=Recoold,
-                 preProcess= c("center", "scale"),
-                 method = "lmStepAIC",
-                 trainControl(method="cv",repeats = 10), na.rm=T,
-                 direction = "backward")
-summary(fwd.Reco)
+Reco$f_P<- f_P_Reco(Reco$Annual_Preci)
+Reco$f_Tair<- f_Tair_Reco(Reco$Tair)
+Reco$f_Age<- f_Age_Reco(Reco$Stand_Age)
+Reco<- Reco[c("Site_ID",  "Annual_Preci", "Tair","Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
+Reco<- na.omit(Reco)
+Reco$prediction <- NA
+for(id in unique(Reco$Site_ID)){
+  train.df <- Reco[Reco$Site_ID != id,]
+  test.df <- Reco[Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "Rg", "f_P", "f_Tair", "f_Age")]
+  Reco.ruf <- randomUniformForest(values~Annual_Preci+ Tair+ Stand_Age+ Rg + f_P + f_Tair + f_Age, 
+                                 data = train.df,
+                                 importance = T,
+                                 ntree = 2000, na.action="omit")
+  Reco.ruf.pred = predict(object = Reco.ruf, X = test.df)
+  Reco$prediction[Reco$Site_ID == id] <- Reco.ruf.pred
+}
 
-# 1.4.3 Compute relative contribution of predictor variable
-bootswiss <- boot.relimp(values~ f_P_Reco(Annual_Preci) + f_Tair_Reco(Tair) + 
-                           f_Age_Reco(Stand_Age) +Rg, 
-                         data=Reco, b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-plot(booteval.relimp(bootswiss, bty="perc",
-                     sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
+summary(Reco.ruf)
+statsModel = model.stats(Reco$prediction, Reco$values, regression = TRUE)
+RMSE_Reco <- (sum((Reco$prediction-Reco$values)^2)/length(Reco$values))^(1/2)
 
 # 1.5 Analysis for Ratio GPP-Reco
 
 #1.5.1 Compute transform function
 
 #Age
-Fun_Ratio_GPP_Reco<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_GPP_Reco,
-                          start = list(A= 1.2061840 , B= -0.0004142, C= -0.8523878, D=-0.1341777), control = list(maxiter = 500))
+Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco, 
+                         start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
 coef(Fun_Ratio_GPP_Reco)
-f_Age_Ratio_GPP_Reco<- function (x) {1.2061853436*(exp(-0.0004142509*x)) -0.8523829784*(exp(-0.1341754831*x))}
+f_Age_Ratio_GPP_Reco<- function (x) {1.1582127*(1-exp(-0.2312178*x))}
 
 #Tair
 Fun_Tair<-nlsLM(values~A/(1+exp(B-C*Tair)), data = Ratio_GPP_Reco,
@@ -259,25 +269,29 @@ Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_GPP_Reco,
 coef(Fun_Preci)
 f_P_Ratio_GPP_Reco<- function (x) {1.148760390*(1-exp(-0.008826998*x))}
 
-# 1.5.2 Compute forward/backward stepwise regresion for climate variables type of disturbance and stand age
+# 1.5.2 Compute random forest with climate variables and stand age
 Ratio_GPP_Recoyoung<- subset(Ratio_GPP_Reco, Stand_Age < 50)
 Ratio_GPP_Recoold<- subset(Ratio_GPP_Reco, Stand_Age > 50)
-fwd.Ratio_GPP_Reco <- train(values~ (Annual_Preci+f_P_Reco(Annual_Preci) + Tair+f_Tair_Reco(Tair) + Stand_Age+f_Age_Reco(Stand_Age) +Rg)^2,
-                            data=Ratio_GPP_Recoold,
-                  preProcess= c("center", "scale"),
-                  method = "lmStepAIC",
-                  trainControl(method="cv",repeats = 10), na.rm=T, 
-                  direction = "backward")
-summary(fwd.Ratio_GPP_Reco)
+Ratio_GPP_Reco$f_P<- f_P_Ratio_GPP_Reco(Ratio_GPP_Reco$Annual_Preci)
+Ratio_GPP_Reco$f_Tair<- f_Tair_Ratio_GPP_Reco(Ratio_GPP_Reco$Tair)
+Ratio_GPP_Reco$f_Age<- f_Age_Ratio_GPP_Reco(Ratio_GPP_Reco$Stand_Age)
+Ratio_GPP_Reco<- Ratio_GPP_Reco[c("Site_ID",  "Annual_Preci", "Tair","Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
+Ratio_GPP_Reco<- na.omit(Ratio_GPP_Reco)
+Ratio_GPP_Reco$prediction <- NA
+for(id in unique(Ratio_GPP_Reco$Site_ID)){
+  train.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID != id,]
+  test.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "Rg", "f_P", "f_Tair", "f_Age")]
+  Ratio_GPP_Reco.ruf <- randomUniformForest(values~Annual_Preci+ Tair+ Stand_Age+ Rg + f_P + f_Tair + f_Age, 
+                                 data = train.df,
+                                 importance = T,
+                                 ntree = 2000, na.action="omit")
+  Ratio_GPP_Reco.ruf.pred = predict(object = Ratio_GPP_Reco.ruf, X = test.df)
+  Ratio_GPP_Reco$prediction[Ratio_GPP_Reco$Site_ID == id] <- Ratio_GPP_Reco.ruf.pred
+}
 
-# 1.5.3 Compute relative contribution of predictor variable
-bootswiss <- boot.relimp(values~ Annual_Preci+f_P_Reco(Annual_Preci) + Tair+f_Tair_Reco(Tair) + Stand_Age+f_Age_Reco(Stand_Age) +Rg, 
-                         data=Ratio_GPP_Reco, b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-plot(booteval.relimp(bootswiss, bty="perc",
-                     sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
+summary(Ratio_GPP_Reco.ruf)
+statsModel = model.stats(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values, regression = TRUE)
+RMSE_Ratio_GPP_Reco <- (sum((Ratio_GPP_Reco$prediction-Ratio_GPP_Reco$values)^2)/length(Ratio_GPP_Reco$values))^(1/2)
 
 # 1.6 Analysis for Ratio NEP-GPP
 
@@ -302,36 +316,39 @@ Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_NEP_GPP,
 coef(Fun_Preci)
 f_P_Ratio_NEP_GPP<- function (x) { 0.095920571*(1-exp(-0.001707187*x))}
 
-# 1.6.2 Compute forward/backward stepwise regresion for climate variables type of disturbance and stand age
+# 1.6.2 Compute random forest with climate variables and stand age
 Ratio_NEP_GPPyoung<- subset(Ratio_NEP_GPP, Stand_Age < 50)
 Ratio_NEP_GPPold<- subset(Ratio_NEP_GPP, Stand_Age > 50)
-fwd.Ratio_NEP_GPP <- train(values~ (Annual_Preci+f_P_Reco(Annual_Preci) + Tair+f_Tair_Reco(Tair) + Stand_Age+f_Age_Reco(Stand_Age) + Rg)^2,
-                           data=Ratio_NEP_GPPold,
-                  preProcess= c("center", "scale"),
-                  method = "lmStepAIC",
-                  trainControl(method="cv",repeats = 10), na.rm=T,
-                  direction = "backward")
-summary(fwd.Ratio_NEP_GPP)
+Ratio_NEP_GPP$f_P<- f_P_Ratio_NEP_GPP(Ratio_NEP_GPP$Annual_Preci)
+Ratio_NEP_GPP$f_Tair<- f_Tair_Ratio_NEP_GPP(Ratio_NEP_GPP$Tair)
+Ratio_NEP_GPP$f_Age<- f_Age_Ratio_NEP_GPP(Ratio_NEP_GPP$Stand_Age)
+Ratio_NEP_GPP<- Ratio_NEP_GPP[c("Site_ID",  "Annual_Preci", "Tair","Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
+Ratio_NEP_GPP<- na.omit(Ratio_NEP_GPP)
+Ratio_NEP_GPP$prediction <- NA
+for(id in unique(Ratio_NEP_GPP$Site_ID)){
+  train.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID != id,]
+  test.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "Rg", "f_P", "f_Tair", "f_Age")]
+  Ratio_NEP_GPP.ruf <- randomUniformForest(values~Annual_Preci+ Tair+ Stand_Age+ Rg + f_P + f_Tair + f_Age, 
+                                 data = train.df,
+                                 importance = T,
+                                 ntree = 2000, na.action="omit")
+  Ratio_NEP_GPP.ruf.pred = predict(object = Ratio_NEP_GPP.ruf, X = test.df)
+  Ratio_NEP_GPP$prediction[Ratio_NEP_GPP$Site_ID == id] <- Ratio_NEP_GPP.ruf.pred
+}
 
-# 1.4.3 Compute relative contribution of predictor variable
-bootswiss <- boot.relimp(values~ Annual_Preci + f_P_Reco(Annual_Preci) + 
-                           Tair + f_Tair_Reco(Tair) + Stand_Age + f_Age_Reco(Stand_Age), 
-                         data=Ratio_NEP_GPP, b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-plot(booteval.relimp(bootswiss, bty="perc",
-                     sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
+summary(Ratio_NEP_GPP.ruf)
+statsModel = model.stats(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values, regression = TRUE)
+RMSE_Ratio_NEP_GPP <- (sum((Ratio_NEP_GPP$prediction-Ratio_NEP_GPP$values)^2)/length(Ratio_NEP_GPP$values))^(1/2)
 
 # 1.7 Analysis for Ratio NEP-GPPmax
 
 # 1.7.1 Compute transform function
 
 #Age
-Fun_Ratio_NEP_GPPmx<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax,
-                         start = list(A=0.165450, B= -0.003772, C=-1.319022, D=-0.148503), control = list(maxiter = 500))
+Fun_Ratio_NEP_GPPmax<-nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =  Ratio_NEP_GPPmax, 
+                           start = list(A = -2.198508, B = -0.000103, C = 13.611050, D=-2.748321, E=2.312422, H=0.276304), control = list(maxiter = 500))
 coef(Fun_Ratio_NEP_GPPmax)
-f_Age_Ratio_NEP_GPPmax<- function (x) {-0.785465899*(exp(-0.227679252*x)) +0.121511337*(exp(0.001386078*x))}
+f_Age_Ratio_NEP_GPPmax<- function (x) {-2.143196e+00-2.588261e-06*x^(2.402659e+01)*exp(-5.176585e+00*x)+2.280457e+00/(1+exp(-x*9.254190e-01))}
 
 #Tair
 Fun_Tair<-nlsLM(values~A/(1+exp(B-C*Tair)), data = Ratio_NEP_GPPmax,
@@ -346,26 +363,29 @@ Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_NEP_GPPmax,
 coef(Fun_Preci)
 f_P_Ratio_NEP_GPPmax<- function (x) {0.156992052*(1-exp(-0.002907185*x))}
 
-# 1.6.2 Compute forward/backward stepwise regresion for climate variables type of disturbance and stand age
+# 1.7.2 Compute random forest with climate variables and stand age
 Ratio_NEP_GPPmaxyoung<- subset(Ratio_NEP_GPPmax, Stand_Age < 50)
 Ratio_NEP_GPPmaxold<- subset(Ratio_NEP_GPPmax, Stand_Age > 50)
-fwd.Ratio_NEP_GPPmax <- train(values~ (Annual_Preci+ f_P_Ratio_NEP_GPPmax(Annual_Preci)+Tair+f_Tair_Ratio_NEP_GPPmax(Tair)+Stand_Age+f_Age_Ratio_NEP_GPPmax(Stand_Age) +Rg)^2,
-                              data=Ratio_NEP_GPPmaxold,
-                              preProcess= c("center", "scale"),
-                              method = "lmStepAIC",
-                              trainControl(method="cv",repeats = 10), na.rm=T,
-                              direction = "backward")
-summary(fwd.Ratio_NEP_GPPmax)
+Ratio_NEP_GPPmax$f_P<- f_P_Ratio_NEP_GPPmax(Ratio_NEP_GPPmax$Annual_Preci)
+Ratio_NEP_GPPmax$f_Tair<- f_Tair_Ratio_NEP_GPPmax(Ratio_NEP_GPPmax$Tair)
+Ratio_NEP_GPPmax$f_Age<- f_Age_Ratio_NEP_GPPmax(Ratio_NEP_GPPmax$Stand_Age)
+Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID",  "Annual_Preci", "Tair","Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
+Ratio_NEP_GPPmax<- na.omit(Ratio_NEP_GPPmax)
+Ratio_NEP_GPPmax$prediction <- NA
+for(id in unique(Ratio_NEP_GPPmax$Site_ID)){
+  train.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID != id,]
+  test.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "Rg", "f_P", "f_Tair", "f_Age")]
+  Ratio_NEP_GPPmax.ruf <- randomUniformForest(values~Annual_Preci+ Tair+ Stand_Age+ Rg + f_P + f_Tair + f_Age, 
+                                 data = train.df,
+                                 importance = T,
+                                 ntree = 2000, na.action="omit")
+  Ratio_NEP_GPPmax.ruf.pred = predict(object = Ratio_NEP_GPPmax.ruf, X = test.df)
+  Ratio_NEP_GPPmax$prediction[Ratio_NEP_GPPmax$Site_ID == id] <- Ratio_NEP_GPPmax.ruf.pred
+}
 
-# 1.4.3 Compute relative contribution of predictor variable
-bootswiss <- boot.relimp(values~ Annual_Preci + f_P_Ratio_NEP_GPPmax(Annual_Preci) + 
-                           Tair + f_Tair_Ratio_NEP_GPPmax(Tair) + f_Age_Ratio_NEP_GPPmax(Stand_Age), 
-                         data=Ratio_NEP_GPPmax, b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-plot(booteval.relimp(bootswiss, bty="perc",
-                     sort = TRUE, level=c(0.8,0.9)), names.abbrev=12, sort=T)
+summary(Ratio_NEP_GPPmax.ruf)
+statsModel = model.stats(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, regression = TRUE)
+RMSE_Ratio_NEP_GPPmax <- (sum((Ratio_NEP_GPPmax$prediction-Ratio_NEP_GPPmax$values)^2)/length(Ratio_NEP_GPPmax$values))^(1/2)
 
 # 1.8. Plot relative contribution output
 
