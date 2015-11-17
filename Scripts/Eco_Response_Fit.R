@@ -252,11 +252,11 @@ gg3<-ggplot(predVals, aes(x, lower, upper)) +
          size = guide_legend(title.position="top", title.hjust = 0.5))+
   facet_grid(Type_Flux~., scales="free_x")
 
-# 2.4 Ratio GPP/Reco Harvest
+# 2.4 Ratio GPP/Reco
 
 # Compute the best fit function
 Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco, 
-                          start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
+                         start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_GPP_Reco), interval = 'confidence', level = 0.95)
 
@@ -335,8 +335,8 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
 
 # Compute the best fit function
 Ratio_NEP_GPPmax<-Ratio_NEP_GPPmax[-which(is.na(Ratio_NEP_GPPmax$values)),]
-Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax,
-                            start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
+Fun_Ratio_NEP_GPPmax<-nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =  Ratio_NEP_GPPmax, 
+                           start = list(A = -2.198508, B = -0.000103, C = 13.611050, D=-2.748321, E=2.312422, H=0.276304), control = list(maxiter = 500))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
@@ -585,8 +585,8 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
 
 # Compute the best fit function
 Ratio_GPP_GPPmax_Mean_Site<-Ratio_NEP_GPPmax_Mean_Site[-which(is.na(Ratio_NEP_GPPmax_Mean_Site$values)), ]
-Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax_Mean_Site,
-                            start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
+Fun_Ratio_NEP_GPPmax<-nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data = Ratio_NEP_GPPmax_Mean_Site, 
+                            start = list(A = -2.198508, B = -0.000103, C = 13.611050, D=-2.748321, E=2.312422, H=0.276304), control = list(maxiter = 500))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
