@@ -6,6 +6,7 @@
 library(rgdal)
 library(dplyr)
 library(ggplot2)
+library(rworldmap)
 
 #1. Map with the location of the fluxnet sites
 
