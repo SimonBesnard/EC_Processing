@@ -33,13 +33,6 @@ Reco<- Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
 Ratio_NEP_GPP<- Flux_High[Flux_High$Type_Flux %in% c("NEP_GPP"),]
 Ratio_GPP_Reco<- Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
 
-# Remove climate variable outlier
-NEP[c(37, 45, 136),"Annual_Preci"]<-NA
-GPP[c(37,45,136),"Annual_Preci"]<-NA
-Reco[c(37, 45, 136),"Annual_Preci"]<-NA
-Ratio_GPP_Reco[c(37, 45, 136),"Annual_Preci"]<-NA
-Ratio_NEP_GPP[c(37, 45, 136),"Annual_Preci"]<-NA
-
 #Compute GPPmax based on the lieth model
 #Min model
 params <- c(GPP15= 1923, GPP1000=1827, a1=242, a2=0.049, k=-0.00025)
@@ -51,7 +44,6 @@ GPP<-transform(GPP, GPPmax = pmin(GPPmat, GPPp))
 # GPP$GPPmat<-with(as.list(params), 1/(1+exp(a*GPP$Tair+b))) 
 # GPP$GPPp<-with(as.list(params),(1-exp(c*GPP$Annual_Preci)))
 # GPP<-transform(GPP, GPPmax = 3000*GPPmat*GPPp)
-GPP$GPPmax[GPP$GPPmax == 0] <- NA
 GPP$NEP_GPPmax<- NEP$values/GPP$GPPmax
 Ratio_NEP_GPPmax<- GPP
 Ratio_NEP_GPPmax<-Ratio_NEP_GPPmax[, !(colnames(Ratio_NEP_GPPmax) %in% c("values", "Type_Flux", "GPPmat", "GPPmax", "GPPp"))]
@@ -334,7 +326,6 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
 # 2.6 Ratio NEP/GPPclimax 
 
 # Compute the best fit function
-Ratio_NEP_GPPmax<-Ratio_NEP_GPPmax[-which(is.na(Ratio_NEP_GPPmax$values)),]
 Fun_Ratio_NEP_GPPmax<-nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =  Ratio_NEP_GPPmax, 
                            start = list(A = -2.198508, B = -0.000103, C = 13.611050, D=-2.748321, E=2.312422, H=0.276304), control = list(maxiter = 500))
 
@@ -584,9 +575,8 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
 # 3.6 Ratio NEP/GPPclimax 
 
 # Compute the best fit function
-Ratio_GPP_GPPmax_Mean_Site<-Ratio_NEP_GPPmax_Mean_Site[-which(is.na(Ratio_NEP_GPPmax_Mean_Site$values)), ]
-Fun_Ratio_NEP_GPPmax<-nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data = Ratio_NEP_GPPmax_Mean_Site, 
-                            start = list(A = -2.198508, B = -0.000103, C = 13.611050, D=-2.748321, E=2.312422, H=0.276304), control = list(maxiter = 500))
+Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax_Mean_Site,
+                            start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
