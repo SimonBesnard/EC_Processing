@@ -87,6 +87,235 @@ for (i in seq_along(Sum_Sd_Flux)){
 #Combine the flux sites in one dataframe
 dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 
+# Add climate data to the dataframe
+#Au-Tum
+dfAll_Sites[6, "Annual_Preci"]<- 1159
+dfAll_Sites[6, "Tair"]<- 10.72
+
+#Au-Wac
+dfAll_Sites[c(7,9), "Annual_Preci"]<- 1106
+dfAll_Sites[c(7,9), "Tair"]<- 12.76
+
+#BE-Bra
+dfAll_Sites[18, "Annual_Preci"]<- 743
+dfAll_Sites[18, "Tair"]<- 10.01
+
+#BR-cax
+dfAll_Sites[c(21,25), "Annual_Preci"]<- 2523
+dfAll_Sites[c(21,25), "Tair"]<- 25.99
+
+#CA-CA1
+dfAll_Sites[27, "Annual_Preci"]<- 1369
+dfAll_Sites[27, "Tair"]<- 9.93
+
+#CA-CA2
+dfAll_Sites[36, "Annual_Preci"]<- 1474
+dfAll_Sites[36, "Tair"]<- 9.86
+
+#CA-CA3
+dfAll_Sites[42, "Annual_Preci"]<- 1676
+dfAll_Sites[42, "Tair"]<- 9.94
+
+#CA-Gro
+dfAll_Sites[47, "Annual_Preci"]<- 831
+dfAll_Sites[47, "Tair"]<- 1.30
+
+#CA-NS1
+dfAll_Sites[c(60, 63), "Annual_Preci"]<- 500
+dfAll_Sites[c(60, 63), "Tair"]<- -2.89
+
+#CA-NS2
+dfAll_Sites[c(64, 68), "Annual_Preci"]<- 500
+dfAll_Sites[c(64, 68), "Tair"]<- -2.88
+
+#CA-NS3
+dfAll_Sites[c(69, 73), "Annual_Preci"]<- 502
+dfAll_Sites[c(69, 73), "Tair"]<- -2.87
+
+#CA-NS4
+dfAll_Sites[74, "Annual_Preci"]<- 502
+dfAll_Sites[74, "Tair"]<- -2.87
+
+# CA-NS5
+dfAll_Sites[c(77, 81), "Annual_Preci"]<- 500
+dfAll_Sites[c(77, 81), "Tair"]<- -2.86
+
+# CA-NS6
+dfAll_Sites[c(82, 86), "Annual_Preci"]<- 495
+dfAll_Sites[c(82, 86), "Tair"]<- -3.08
+
+# CA-NS7
+dfAll_Sites[c(87, 90), "Annual_Preci"]<- 483
+dfAll_Sites[c(87, 90), "Tair"]<- -3.52
+
+#CA-Qcu
+dfAll_Sites[114, "Annual_Preci"]<- 950
+dfAll_Sites[114, "Tair"]<- 0.13
+
+#CA-Qfo
+dfAll_Sites[120, "Annual_Preci"]<- 962
+dfAll_Sites[120, "Tair"]<- -0.36
+
+#CA-SF1
+dfAll_Sites[124, "Annual_Preci"]<- 470
+dfAll_Sites[124, "Tair"]<- 0.40
+
+#CA-SF2
+dfAll_Sites[129, "Annual_Preci"]<- 470
+dfAll_Sites[129, "Tair"]<- 0.40
+
+#CA-SJ1
+dfAll_Sites[c(133:137), "Annual_Preci"]<- 430
+dfAll_Sites[133, "Tair"]<- 0.13
+
+#CA-SJ2
+dfAll_Sites[c(138, 139), "Annual_Preci"]<- 430
+
+#CA-SJ3
+dfAll_Sites[c(141, 142), "Annual_Preci"]<- 433
+
+#CA-TP1
+dfAll_Sites[c(143), "Annual_Preci"]<- 1036
+
+#CA-TP2
+dfAll_Sites[c(145:147), "Annual_Preci"]<- 1036
+dfAll_Sites[145, "Tair"]<- 8.00
+
+#CA-TP4
+dfAll_Sites[148, "Annual_Preci"]<- 1036
+dfAll_Sites[148, "Tair"]<-8.00
+
+#CN-Ku1
+dfAll_Sites[c(152:153), "Annual_Preci"]<- 249
+dfAll_Sites[c(152:153), "Tair"]<- 7.27
+
+#CZ-Bk1
+dfAll_Sites[c(154:160), "Annual_Preci"]<- 1026
+dfAll_Sites[c(154:160), "Tair"]<- 4.72
+
+#De-Bay
+dfAll_Sites[161, "Annual_Preci"]<- 1159
+dfAll_Sites[161, "Tair"]<- 5.15
+
+#DE-Tha
+dfAll_Sites[c(167, 168), "Annual_Preci"]<- 643
+
+#DK-Sor
+dfAll_Sites[183, "Annual_Preci"]<- 573
+dfAll_Sites[183, "Tair"]<- 8.03
+
+#FI-Hyy
+dfAll_Sites[c(194, 198), "Annual_Preci"]<- 620
+dfAll_Sites[194, "Tair"]<- 2.18
+
+#FI-Sod
+dfAll_Sites[c(205: 207), "Annual_Preci"]<- 525
+dfAll_Sites[207, "Tair"]<- -1.13
+
+#FR-Hes
+dfAll_Sites[215, "Annual_Preci"]<- 793
+dfAll_Sites[215, "Tair"]<- 9.24
+
+#Il-Yat
+dfAll_Sites[c(236:238), "Annual_Preci"]<- 277
+dfAll_Sites[236, "Tair"]<- 17.56
+
+#It-Col
+dfAll_Sites[c(240:241, 244:248, 250), "Annual_Preci"]<- 971
+dfAll_Sites[c(240,248, 250), "Tair"]<- 7.32
+
+#It-Lav
+dfAll_Sites[c(251:254, 256), "Annual_Preci"]<- 757
+
+#It-Non
+dfAll_Sites[260, "Annual_Preci"]<- 742
+
+#It-Ro1
+dfAll_Sites[c(264, 265), "Annual_Preci"]<- 764
+dfAll_Sites[264, "Tair"]<- 15.35
+
+#It-Sro
+dfAll_Sites[c(276, 278, 279), "Annual_Preci"]<- 898
+
+#JP-Tak
+dfAll_Sites[c(284:289), "Annual_Preci"]<- 1024
+
+#NL-Loo
+dfAll_Sites[296, "Annual_Preci"]<- 786
+dfAll_Sites[296, "Tair"]<- 9.36
+
+#Ru-Fyo
+dfAll_Sites[c(312:315, 319), "Annual_Preci"]<- 671
+dfAll_Sites[312, "Tair"]<- 4.38
+
+#SE-Fla
+dfAll_Sites[c(322:323, 325:328), "Annual_Preci"]<- 616
+dfAll_Sites[c(322, 325), "Tair"]<- 0.27
+
+#SE-Nor
+dfAll_Sites[c(329:338), "Annual_Preci"]<- 561
+dfAll_Sites[c(331, 333:335, 337), "Tair"]<- 5.45
+
+#SE-Sk1
+dfAll_Sites[339, "Annual_Preci"]<- 567
+
+#SE-Sk2
+dfAll_Sites[340:341, "Annual_Preci"]<- 573
+
+#UK-Ham
+dfAll_Sites[354, "Annual_Preci"]<- 829
+dfAll_Sites[354, "Tair"]<- 9.38
+
+#US-Blo
+dfAll_Sites[c(355:357), "Annual_Preci"]<- 1226
+dfAll_Sites[c(355:357), "Tair"]<- 11.09
+
+#US-Fmf
+dfAll_Sites[c(373:374), "Annual_Preci"]<- 546
+dfAll_Sites[c(373:374), "Tair"]<- 9.50
+
+#US-Fwf
+dfAll_Sites[c(375:376), "Annual_Preci"]<- 557
+dfAll_Sites[c(375:376), "Tair"]<- 8.40
+
+#US-Ha1
+dfAll_Sites[377, "Annual_Preci"]<- 1071
+dfAll_Sites[c(377, 379, 380, 388), "Tair"]<- 6.62
+
+#US-Ha2
+dfAll_Sites[393, "Tair"]<- 6.56
+
+#US-Lph
+dfAll_Sites[c(404, 407), "Annual_Preci"]<- 1071
+dfAll_Sites[c(404, 407), "Tair"]<- 6.73
+
+#US-Me1
+dfAll_Sites[c(408, 409), "Annual_Preci"]<- 705
+dfAll_Sites[c(408, 409), "Tair"]<- 7.88
+
+#US-Oho
+dfAll_Sites[415, "Annual_Preci"]<- 849
+dfAll_Sites[415, "Tair"]<- 10.10
+
+#US-Sp1
+dfAll_Sites[c(417:421), "Annual_Preci"]<- 1310
+dfAll_Sites[c(417:421), "Tair"]<- 20.06
+
+#US-Sp2
+dfAll_Sites[423, "Annual_Preci"]<- 1314
+dfAll_Sites[423, "Tair"]<- 20.07
+
+#US-Syv
+dfAll_Sites[439, "Annual_Preci"]<- 826
+dfAll_Sites[439, "Tair"]<- 3.81
+
+#US-Umb
+dfAll_Sites[440, "Tair"]<- 5.83
+
+#Vu-Coc
+dfAll_Sites[c(461, 464), "Annual_Preci"]<- 2763
+dfAll_Sites[c(461, 464), "Tair"]<- 25.1
+
 # Remove disturbed years
 # sites: AU-Tum (2003= insect outbreak), BE-Bra (2000: thinning), CA-Ca1 (1997: disturbance occured), CA-Ca2 (2000/2001: forest not planted yet), CA-NS4 (2002: disturbance occured), CA-NS6 (2001), 
 #CA-OJP (1999: disturbance occured), CA-SJ2 (2003\2004: outlier for GPP values), NL-Loo (2006: storm), SE-Nor (2005: thinning occured this year),UK-Gri (2006:Thinning)
