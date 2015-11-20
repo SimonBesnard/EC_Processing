@@ -121,7 +121,7 @@ dfAll_Sites[47, "Annual_Preci"]<- 831
 dfAll_Sites[47, "Tair"]<- 1.30
 
 #CA-NS1
-dfAll_Sites[c(60, 63), "Annual_Preci"]<- 500
+dfAll_Sites[c(60, 62, 63), "Annual_Preci"]<- 500
 dfAll_Sites[c(60, 63), "Tair"]<- -2.89
 
 #CA-NS2
@@ -129,7 +129,7 @@ dfAll_Sites[c(64, 68), "Annual_Preci"]<- 500
 dfAll_Sites[c(64, 68), "Tair"]<- -2.88
 
 #CA-NS3
-dfAll_Sites[c(69, 73), "Annual_Preci"]<- 502
+dfAll_Sites[c(69, 71, 73), "Annual_Preci"]<- 502
 dfAll_Sites[c(69, 73), "Tair"]<- -2.87
 
 #CA-NS4
@@ -261,6 +261,9 @@ dfAll_Sites[339, "Annual_Preci"]<- 567
 
 #SE-Sk2
 dfAll_Sites[340:341, "Annual_Preci"]<- 573
+
+#Uk-Gri
+dfAll_Sites[343, "Annual_Preci"]<- 1623
 
 #UK-Ham
 dfAll_Sites[354, "Annual_Preci"]<- 829
