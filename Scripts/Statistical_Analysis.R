@@ -86,18 +86,16 @@ NEP$prediction <- NA
 for(id in unique(NEP$Site_ID)){
   train.df <- NEP[NEP$Site_ID != id,]
   test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  NEP.ruf <- randomForest(values~Annual_Preci+ Tair+ Stand_Age+ f_P + f_Tair + f_Age, 
+  NEP.ruf <- randomForest(values~f_P*f_Tair*f_Age, 
                                 data = train.df,
                                 importance = T, 
-                                ntree=2000,
-                                nodesize=5, 
-                                mtry=2)
+                                ntree=2000)
   NEP.ruf.pred = predict(object = NEP.ruf, newdata = test.df)
   NEP$prediction[NEP$Site_ID == id] <- NEP.ruf.pred
 }
 
 importance(NEP.ruf)
-statsModel = model.stats(NEP$prediction, NEP$values, regression = TRUE)
+R2_NEP<- cor(NEP$prediction, NEP$values)^2
 RMSE_NEP <- (sum((NEP$prediction-NEP$values)^2)/length(NEP$values))^(1/2)
 NSE_NEP<-NSE(NEP$prediction, NEP$values, na.rm=TRUE)
 Bias_NEP<-pbias(NEP$prediction, NEP$values)  
@@ -133,19 +131,17 @@ GPP<- GPP[c("Site_ID",  "Type_Flux", "Annual_Preci", "Tair", "Rg", "Stand_Age", 
 GPP$prediction <- NA
 for(id in unique(GPP$Site_ID)){
   train.df <- GPP[GPP$Site_ID != id,]
-  test.df <- GPP[GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  GPP.ruf <- randomForest(values~Annual_Preci+ Tair+ Stand_Age + f_P + f_Tair + f_Age, 
+  test.df <- GPP[GPP$Site_ID == id, c("f_P", "f_Tair", "f_Age")]
+  GPP.ruf <- randomForest(values~ f_P*f_Tair*f_Age, 
                                  data = train.df,
                                  importance = T, 
-                                 ntree=2000,
-                                 nodesize=5, 
-                                 mtry=2)
+                                 ntree=2000)
   GPP.ruf.pred = predict(object = GPP.ruf, newdata = test.df)
   GPP$prediction[GPP$Site_ID == id] <- GPP.ruf.pred
 }
 
 importance(GPP.ruf)
-statsModel = model.stats(GPP$prediction, GPP$values, regression = TRUE)
+R2_GPP<- cor(GPP$prediction, GPP$values)^2
 RMSE_GPP <- (sum((GPP$prediction-GPP$values)^2)/length(GPP$values))^(1/2)
 NSE_GPP<-NSE(GPP$prediction, GPP$values, na.rm=TRUE)
 Bias_GPP<-pbias(GPP$prediction, GPP$values)  
@@ -181,19 +177,17 @@ Reco<- Reco[c("Site_ID",  "Type_Flux", "Annual_Preci", "Tair", "Rg", "Stand_Age"
 Reco$prediction <- NA
 for(id in unique(Reco$Site_ID)){
   train.df <- Reco[Reco$Site_ID != id,]
-  test.df <- Reco[Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  Reco.ruf <- randomForest(values~Annual_Preci+ Tair+ Stand_Age + f_P + f_Tair + f_Age, 
+  test.df <- Reco[Reco$Site_ID == id, c("f_P", "f_Tair", "f_Age")]
+  Reco.ruf <- randomForest(values~f_P*f_Tair*f_Age, 
                                  data = train.df,
                                  importance = T, 
-                                 ntree=2000,
-                                 nodesize=5, 
-                                 mtry=2)
+                                 ntree=2000)
   Reco.ruf.pred = predict(object = Reco.ruf, newdata = test.df)
   Reco$prediction[Reco$Site_ID == id] <- Reco.ruf.pred
 }
 
 importance(Reco.ruf)
-statsModel = model.stats(Reco$prediction, Reco$values, regression = TRUE)
+R2_Reco<- cor(Reco$prediction, Reco$values)^2
 RMSE_Reco <- (sum((Reco$prediction-Reco$values)^2)/length(Reco$values))^(1/2)
 NSE_Reco<-NSE(Reco$prediction, Reco$values, na.rm=TRUE)
 Bias_Reco<-pbias(Reco$prediction, Reco$values)  
@@ -230,19 +224,17 @@ Ratio_GPP_Reco<- Ratio_GPP_Reco[c("Site_ID",  "Type_Flux", "Annual_Preci", "Tair
 Ratio_GPP_Reco$prediction <- NA
 for(id in unique(Ratio_GPP_Reco$Site_ID)){
   train.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID != id,]
-  test.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  Ratio_GPP_Reco.ruf <- randomForest(values~Annual_Preci+ Tair+ Stand_Age + f_P + f_Tair + f_Age, 
+  test.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID == id, c("f_P", "f_Tair", "f_Age")]
+  Ratio_GPP_Reco.ruf <- randomForest(values~f_P*f_Tair*f_Age, 
                                  data = train.df,
                                  importance = T, 
-                                 ntree=2000,
-                                 nodesize=5, 
-                                 mtry=2)
+                                 ntree=2000)
   Ratio_GPP_Reco.ruf.pred = predict(object = Ratio_GPP_Reco.ruf, newdata = test.df)
   Ratio_GPP_Reco$prediction[Ratio_GPP_Reco$Site_ID == id] <- Ratio_GPP_Reco.ruf.pred
 }
 
 importance(Ratio_GPP_Reco.ruf)
-statsModel = model.stats(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values, regression = TRUE)
+R2_Ratio_GPP_Reco<- cor(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)^2
 RMSE_Ratio_GPP_Reco <- (sum((Ratio_GPP_Reco$prediction-Ratio_GPP_Reco$values)^2)/length(Ratio_GPP_Reco$values))^(1/2)
 NSE_Ratio_GPP_Reco<-NSE(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values, na.rm=TRUE)
 Bias_Ratio_GPP_Reco<-pbias(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)  
@@ -279,19 +271,17 @@ Ratio_NEP_GPP<- Ratio_NEP_GPP[c("Site_ID",  "Type_Flux", "Annual_Preci", "Tair",
 Ratio_NEP_GPP$prediction <- NA
 for(id in unique(Ratio_NEP_GPP$Site_ID)){
   train.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID != id,]
-  test.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  Ratio_NEP_GPP.ruf <- randomForest(values~Annual_Preci+ Tair+ Stand_Age+ f_P + f_Tair + f_Age, 
+  test.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID == id, c("f_P", "f_Tair", "f_Age")]
+  Ratio_NEP_GPP.ruf <- randomForest(values~f_P*f_Tair*f_Age, 
                                  data = train.df,
                                  importance = T, 
-                                 ntree=2000,
-                                 nodesize=5, 
-                                 mtry=2)
+                                 ntree=2000)
   Ratio_NEP_GPP.ruf.pred = predict(object = Ratio_NEP_GPP.ruf, newdata = test.df)
   Ratio_NEP_GPP$prediction[Ratio_NEP_GPP$Site_ID == id] <- Ratio_NEP_GPP.ruf.pred
 }
 
 importance(Ratio_NEP_GPP.ruf)
-statsModel = model.stats(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values, regression = TRUE)
+R2_Ratio_NEP_GPP<- cor(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)^2
 RMSE_Ratio_NEP_GPP <- (sum((Ratio_NEP_GPP$prediction-Ratio_NEP_GPP$values)^2)/length(Ratio_NEP_GPP$values))^(1/2)
 NSE_Ratio_NEP_GPP<-NSE(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values, na.rm=TRUE)
 Bias_Ratio_NEP_GPP<-pbias(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)  
@@ -328,19 +318,17 @@ Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID",  "Type_Flux", "Annual_Preci", "
 Ratio_NEP_GPPmax$prediction <- NA
 for(id in unique(Ratio_NEP_GPPmax$Site_ID)){
   train.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID != id,]
-  test.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  Ratio_NEP_GPPmax.ruf <- randomForest(values~Annual_Preci+ Tair+ Stand_Age + f_P + f_Tair + f_Age, 
+  test.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID == id, c("f_P", "f_Tair", "f_Age")]
+  Ratio_NEP_GPPmax.ruf <- randomForest(values~f_P*f_Tair*f_Age, 
                                  data = train.df,
                                  importance = T, 
-                                 ntree=2000,
-                                 nodesize=5, 
-                                 mtry=2)
+                                 ntree=2000)
   Ratio_NEP_GPPmax.ruf.pred = predict(object = Ratio_NEP_GPPmax.ruf, newdata = test.df)
   Ratio_NEP_GPPmax$prediction[Ratio_NEP_GPPmax$Site_ID == id] <- Ratio_NEP_GPPmax.ruf.pred
 }
 
 importance(Ratio_NEP_GPPmax.ruf)
-statsModel = model.stats(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, regression = TRUE)
+R2_Ratio_NEP_GPPmax<- cor(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)^2
 RMSE_Ratio_NEP_GPPmax <- (sum((Ratio_NEP_GPPmax$prediction-Ratio_NEP_GPPmax$values)^2)/length(Ratio_NEP_GPPmax$values))^(1/2)
 NSE_Ratio_NEP_GPPmax<-NSE(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, na.rm=TRUE)
 Bias_Ratio_NEP_GPPmax<-pbias(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)
