@@ -18,7 +18,7 @@ library (hydroGOF)
 library (minpack.lm)
 library (cvTools)
 
-#.1.Function fit choice for ecosystem response
+#1.Function fit choice for ecosystem response
 
 # Import dataframe
 dfAll_Sites<-readRDS("Output/df_Annual_Flux.rds")
@@ -326,9 +326,8 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
 # 2.6 Ratio NEP/GPPclimax 
 
 # Compute the best fit function
-Fun_Ratio_NEP_GPPmax<-nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =  Ratio_NEP_GPPmax, 
-                           start = list(A = -2.198508, B = -0.000103, C = 13.611050, D=-2.748321, E=2.312422, H=0.276304), control = list(maxiter = 500))
-
+Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax,
+                            start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
 
