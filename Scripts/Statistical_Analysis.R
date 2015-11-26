@@ -291,10 +291,10 @@ Bias_Ratio_NEP_GPP<-pbias(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)
 # 1.7.1 Compute transform function
 
 #Age
-Fun_Ratio_NEP_GPPmax<-nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =  Ratio_NEP_GPPmax, 
-                           start = list(A = -2.198508, B = -0.000103, C = 13.611050, D=-2.748321, E=2.312422, H=0.276304), control = list(maxiter = 500))
+Fun_Ratio_NEP_GPPmax<-Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax,
+                                                  start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
 coef(Fun_Ratio_NEP_GPPmax)
-f_Age_Ratio_NEP_GPPmax<- function (x) {-2.143196e+00-2.588261e-06*x^(2.402659e+01)*exp(-5.176585e+00*x)+2.280457e+00/(1+exp(-x*9.254190e-01))}
+f_Age_Ratio_NEP_GPPmax<- function (x) {-0.673035335*(exp(-0.089879738*x)) + 0.250875785*(exp(-0.005593567*x))}
 
 #Tair
 Fun_Tair<-nlsLM(values~A/(1+exp(B-C*Tair)), data = Ratio_NEP_GPPmax,
