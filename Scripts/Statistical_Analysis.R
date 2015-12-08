@@ -54,6 +54,19 @@ Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "I
 colnames(Ratio_NEP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
                               "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
+#Compute ratio GPP/GPPmax
+GPP$GPP_GPPmax<- GPP$values/GPP$GPPmax
+Ratio_GPP_GPPmax<- GPP
+Ratio_GPP_GPPmax<-Ratio_GPP_GPPmax[, !(colnames(Ratio_GPP_GPPmax) %in% c("values", "Type_Flux", "GPPmat", "GPPmax", "GPPp", "NEP_GPPmax"))]
+Ratio_GPP_GPPmax<-gather(Ratio_GPP_GPPmax, variable, values, -Annual_Preci, -year, 
+                         -Ecosystem, -Climate, -Disturbance,
+                         -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
+                         -Tair, -Rg, -Study, -Lat, -Long)
+Ratio_GPP_GPPmax<- Ratio_GPP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "values", "Annual_Preci", 
+                                      "Tair","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
+colnames(Ratio_GPP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
+                              "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
+
 # 1.2 Analysis for NEP
 
 #1.2.1 Compute transform function
@@ -334,7 +347,393 @@ RMSE_Ratio_NEP_GPPmax <- (sum((Ratio_NEP_GPPmax$prediction-Ratio_NEP_GPPmax$valu
 NSE_Ratio_NEP_GPPmax<-NSE(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, na.rm=TRUE)
 Bias_Ratio_NEP_GPPmax<-pbias(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)
 
-# 1.8 Plot observed vs. actual for the different flux
+# 1.8 Analysis for Ratio GPP-GPPclimax
+
+#1.8.1 Compute transform function
+
+#Age
+Fun_Ratio_GPP_GPPmax<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_GPPmax, 
+                         start = list(A= 0.6575, k= -0.1007), control = list(maxiter = 500))
+coef(Fun_Ratio_GPP_GPPmax)
+f_Age_Ratio_GPP_GPPmax<- function (x) {1.1579471*(1-exp(-0.1310897*x))}
+
+#Tair
+Fun_Tair<-nlsLM(values~A/(1+exp(B-C*Tair)), data = Ratio_GPP_GPPmax,
+                start = list(A= 1.2, B=1.1315, C=0.119), control = list(maxiter = 500))
+coef(Fun_Tair)
+f_Tair_Ratio_GPP_GPPmax<- function (x) {1.194075 /(1+exp(-1.416043-0.278409*x))}
+
+#Precipitation
+Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_GPP_GPPmax,
+                 start = list(A= 1.2, B=-0.000664), control = list(maxiter = 500))
+coef(Fun_Preci)
+f_P_Ratio_GPP_GPPmax<- function (x) {1.0928786*(1-exp(-0.1138259*x))}
+
+# 1.8.2 Compute random forest with climate variables and stand age
+Ratio_GPP_GPPmaxyoung<- subset(Ratio_GPP_GPPmax, Stand_Age < 50)
+Ratio_GPP_GPPmaxold<- subset(Ratio_GPP_GPPmax, Stand_Age > 50)
+Ratio_GPP_GPPmax$f_P<- f_P_Ratio_GPP_GPPmax(Ratio_GPP_GPPmax$Annual_Preci)
+Ratio_GPP_GPPmax$f_Tair<- f_Tair_Ratio_GPP_GPPmax(Ratio_GPP_GPPmax$Tair)
+Ratio_GPP_GPPmax$f_Age<- f_Age_Ratio_GPP_GPPmax(Ratio_GPP_GPPmax$Stand_Age)
+Ratio_GPP_GPPmax<- Ratio_GPP_GPPmax[c("Site_ID",  "Type_Flux", "Annual_Preci", "Tair", "Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
+Ratio_GPP_GPPmax$prediction <- NA
+for(id in unique(Ratio_GPP_GPPmax$Site_ID)){
+  train.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID != id,]
+  test.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  Ratio_GPP_GPPmax.ruf <- randomForest(values~f_P + f_Tair + f_Age + Annual_Preci + Tair + Stand_Age, 
+                                     data = train.df,
+                                     importance = T, 
+                                     ntree=2000)
+  Ratio_GPP_GPPmax.ruf.pred = predict(object = Ratio_GPP_GPPmax.ruf, newdata = test.df)
+  Ratio_GPP_GPPmax$prediction[Ratio_GPP_GPPmax$Site_ID == id] <- Ratio_GPP_GPPmax.ruf.pred
+}
+
+importance(Ratio_GPP_GPPmax.ruf)
+R2_Ratio_GPP_GPPmax<- cor(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)^2
+RMSE_Ratio_GPP_GPPmax <- (sum((Ratio_GPP_GPPmax$prediction-Ratio_GPP_GPPmax$values)^2)/length(Ratio_GPP_GPPmax$values))^(1/2)
+NSE_Ratio_GPP_GPPmax<-NSE(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values, na.rm=TRUE)
+Bias_Ratio_GPP_GPPmax<-pbias(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)  
+
+# 2. Explain variabilty of the fluxes using linear regression analysis
+
+#. 2.1 NEP
+
+# 2.1.1 Compute Importance variable
+# Stepwise regression
+NEPyoung<- subset(NEP, Stand_Age < 50)
+NEPold<- subset(NEP, Stand_Age > 50)
+lm.NEP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=NEP)
+step.NEP<- step(lm.NEP, direction = "backward")
+print(step.NEP)
+summary(step.NEP)
+
+# VarImp estimation
+bootswiss <- boot.relimp(values~(f_P + f_Tair + f_Age)^2, 
+                         data= NEP, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = TRUE)
+print(booteval.relimp(bootswiss))
+
+# 2.1.2 Assess model performance
+NEP$prediction <- NA
+for(id in unique(NEP$Site_ID)){
+  train.df <- NEP[NEP$Site_ID != id,]
+  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  lm.NEP<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
+  step.NEP<- step(lm.NEP, direction = "backward")
+  NEP.pred = predict(object = step.NEP, newdata = test.df)
+  NEP$prediction[NEP$Site_ID == id] <- NEP.pred
+}
+
+R2_NEP<- cor(NEP$prediction, NEP$values)^2
+RMSE_NEP <- (sum((NEP$prediction-NEP$values)^2)/length(NEP$values))^(1/2)
+NSE_NEP<-NSE(NEP$prediction, NEP$values, na.rm=TRUE)
+Bias_NEP<-pbias(NEP$prediction, NEP$values)
+
+#. 2.2 GPP
+
+# 2.2.1 Compute Importance variable
+
+# Stepwise regression
+GPPyoung<- subset(GPP, Stand_Age < 50)
+GPPold<- subset(GPP, Stand_Age > 50)
+
+lm.GPP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=GPP)
+step.GPP<- stepAIC(lm.GPP, direction = "backward")
+print(step.GPP)
+summary(step.GPP)
+
+# VarImp estimation
+bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair + f_Tair:f_Age, 
+                         data= GPP, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = TRUE)
+print(booteval.relimp(bootswiss))
+
+# 2.2.2 Assess model performance
+GPP$prediction <- NA
+for(id in unique(GPP$Site_ID)){
+  train.df <- GPP[GPP$Site_ID != id,]
+  test.df <- GPP[GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  lm.GPP<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
+  step.GPP<- step(lm.GPP, direction = "backward")
+  GPP.pred = predict(object = step.GPP, newdata = test.df)
+  GPP$prediction[GPP$Site_ID == id] <- GPP.pred
+}
+
+R2_GPP<- cor(GPP$prediction, GPP$values)^2
+RMSE_GPP <- (sum((GPP$prediction-GPP$values)^2)/length(GPP$values))^(1/2)
+NSE_GPP<-NSE(GPP$prediction, GPP$values, na.rm=TRUE)
+Bias_GPP<-pbias(GPP$prediction, GPP$values)  
+
+#. 2.3 Respiration
+
+# 2.3.1 Compute Importance variable
+
+# Stepwise regression
+lm.Reco<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Reco)
+step.Reco<- stepAIC(lm.Reco, direction = "backward")
+print(step.Reco)
+summary(step.Reco)
+
+# VarImp estimation
+bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair + f_Tair:f_Age, 
+                         data= Reco, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = TRUE)
+print(booteval.relimp(bootswiss))
+
+# 2.3.2 Assess model performance
+Reco$prediction <- NA
+for(id in unique(Reco$Site_ID)){
+  train.df <- Reco[Reco$Site_ID != id,]
+  test.df <- Reco[Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  lm.Reco<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
+  step.Reco<- step(lm.Reco, direction = "backward")
+  Reco.pred = predict(object = step.Reco, newdata = test.df)
+  Reco$prediction[Reco$Site_ID == id] <- Reco.pred
+}
+
+R2_Reco<- cor(Reco$prediction, Reco$values)^2
+RMSE_Reco <- (sum((Reco$prediction-Reco$values)^2)/length(Reco$values))^(1/2)
+NSE_Reco<-NSE(Reco$prediction, Reco$values, na.rm=TRUE)
+Bias_Reco<-pbias(Reco$prediction, Reco$values)  
+
+#. 2.4 Ratio GPP-ER
+
+# 2.4.1 Compute Importance variable
+
+# Stepwise regression
+lm.Ratio_GPP_Reco<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Ratio_GPP_Reco)
+step.Ratio_GPP_Reco<- stepAIC(lm.Ratio_GPP_Reco, direction = "backward")
+print(step.Ratio_GPP_Reco)
+summary(step.Ratio_GPP_Reco)
+
+# VarImp estimation
+bootswiss <- boot.relimp(values~ (f_P + f_Tair + f_Age)^2, 
+                         data= Ratio_GPP_Reco, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = TRUE)
+print(booteval.relimp(bootswiss))
+
+# 2.4.2 Assess model performance
+Ratio_GPP_Reco$prediction <- NA
+for(id in unique(Ratio_GPP_Reco$Site_ID)){
+  train.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID != id,]
+  test.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  lm.Ratio_GPP_Reco<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
+  step.Ratio_GPP_Reco<- step(lm.Ratio_GPP_Reco, direction = "backward")
+  Ratio_GPP_Reco.pred = predict(object = step.Ratio_GPP_Reco, newdata = test.df)
+  Ratio_GPP_Reco$prediction[Ratio_GPP_Reco$Site_ID == id] <- Ratio_GPP_Reco.pred
+}
+
+R2_Ratio_GPP_Reco<- cor(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)^2
+RMSE_Ratio_GPP_Reco <- (sum((Ratio_GPP_Reco$prediction-Ratio_GPP_Reco$values)^2)/length(Ratio_GPP_Reco$values))^(1/2)
+NSE_Ratio_GPP_Reco<-NSE(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values, na.rm=TRUE)
+Bias_Ratio_GPP_Reco<-pbias(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)  
+
+#. 2.5 Ratio NEP-GPP
+
+# 2.5.1 Compute Importance variable
+
+# Stepwise regression
+lm.Ratio_NEP_GPP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Ratio_NEP_GPP)
+step.Ratio_NEP_GPP<- stepAIC(lm.Ratio_NEP_GPP, direction = "backward")
+print(step.Ratio_NEP_GPP)
+summary(step.Ratio_NEP_GPP)
+
+# VarImp estimation
+bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair, 
+                         data= Ratio_NEP_GPP, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = TRUE)
+print(booteval.relimp(bootswiss))
+
+# 2.5.2 Assess model performance
+Ratio_NEP_GPP$prediction <- NA
+for(id in unique(Ratio_NEP_GPP$Site_ID)){
+  train.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID != id,]
+  test.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  lm.Ratio_NEP_GPP<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
+  step.Ratio_NEP_GPP<- step(lm.Ratio_NEP_GPP, direction = "backward")
+  Ratio_NEP_GPP.pred = predict(object = step.Ratio_NEP_GPP, newdata = test.df)
+  Ratio_NEP_GPP$prediction[Ratio_NEP_GPP$Site_ID == id] <- Ratio_NEP_GPP.pred
+}
+
+R2_Ratio_NEP_GPP<- cor(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)^2
+RMSE_Ratio_NEP_GPP <- (sum((Ratio_NEP_GPP$prediction-Ratio_NEP_GPP$values)^2)/length(Ratio_NEP_GPP$values))^(1/2)
+NSE_Ratio_NEP_GPP<-NSE(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values, na.rm=TRUE)
+Bias_Ratio_NEP_GPP<-pbias(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)  
+
+#. 2.6 Ratio NEP-GPPmax
+
+# 2.6.1 Compute Importance variable
+
+# Stepwise regression
+lm.Ratio_NEP_GPPmax<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Ratio_NEP_GPPmax)
+step.Ratio_NEP_GPPmax<- stepAIC(lm.Ratio_NEP_GPPmax, direction = "backward")
+print(step.Ratio_NEP_GPPmax)
+summary(step.Ratio_NEP_GPPmax)
+
+# VarImp estimation
+bootswiss <- boot.relimp(values~ (f_P + f_Tair + f_Age)^2, 
+                         data= Ratio_NEP_GPPmax, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = TRUE)
+print(booteval.relimp(bootswiss))
+
+# 2.6.2 Assess model performance
+Ratio_NEP_GPPmax$prediction <- NA
+for(id in unique(Ratio_NEP_GPPmax$Site_ID)){
+  train.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID != id,]
+  test.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  lm.Ratio_NEP_GPPmax<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
+  step.Ratio_NEP_GPPmax<- step(lm.Ratio_NEP_GPPmax, direction = "backward")
+  Ratio_NEP_GPPmax.pred = predict(object = step.Ratio_NEP_GPPmax, newdata = test.df)
+  Ratio_NEP_GPPmax$prediction[Ratio_NEP_GPPmax$Site_ID == id] <- Ratio_NEP_GPPmax.pred
+}
+
+R2_Ratio_NEP_GPPmax<- cor(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)^2
+RMSE_Ratio_NEP_GPPmax <- (sum((Ratio_NEP_GPPmax$prediction-Ratio_NEP_GPPmax$values)^2)/length(Ratio_NEP_GPPmax$values))^(1/2)
+NSE_Ratio_NEP_GPPmax<-NSE(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, na.rm=TRUE)
+Bias_Ratio_NEP_GPPmax<-pbias(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)
+
+#. 2.7 Ratio NEP-GPPmax
+
+# 2.7.1 Compute Importance variable
+
+# Stepwise regression
+lm.Ratio_GPP_GPPmax<-lm(values ~ (f_P + f_Tair + f_Age + Annual_Preci + Tair + Stand_Age)^2, data=Ratio_GPP_GPPmax)
+step.Ratio_GPP_GPPmax<- stepAIC(lm.Ratio_GPP_GPPmax, direction = "backward")
+print(step.Ratio_GPP_GPPmax)
+summary(step.Ratio_GPP_GPPmax)
+
+# VarImp estimation
+bootswiss <- boot.relimp(values~ f_Tair + f_Age + Annual_Preci + f_Tair:Annual_Preci, 
+                         data= Ratio_GPP_GPPmax, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = TRUE)
+print(booteval.relimp(bootswiss))
+
+# 2.7.2 Assess model performance
+Ratio_GPP_GPPmax$prediction <- NA
+for(id in unique(Ratio_GPP_GPPmax$Site_ID)){
+  train.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID != id,]
+  test.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
+  lm.Ratio_GPP_GPPmax<- glm(values ~ f_Tair + f_Age + Annual_Preci + f_Tair:Annual_Preci, data=train.df)
+  step.Ratio_GPP_GPPmax<- step(lm.Ratio_GPP_GPPmax, direction = "backward")
+  Ratio_GPP_GPPmax.pred = predict(object = step.Ratio_GPP_GPPmax, newdata = test.df)
+  Ratio_GPP_GPPmax$prediction[Ratio_GPP_GPPmax$Site_ID == id] <- Ratio_GPP_GPPmax.pred
+}
+
+R2_Ratio_GPP_GPPmax<- cor(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)^2
+RMSE_Ratio_GPP_GPPmax <- (sum((Ratio_GPP_GPPmax$prediction-Ratio_GPP_GPPmax$values)^2)/length(Ratio_GPP_GPPmax$values))^(1/2)
+NSE_Ratio_GPP_GPPmax<-NSE(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values, na.rm=TRUE)
+Bias_Ratio_GPP_GPPmax<-pbias(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)  
+
+# 3. Plot relative contribution output
+
+#Subset data
+df<-read.csv("Output/VarImp_Flux_LMG.csv", header = TRUE)
+df_NEP<-df[df$Flux %in% c("NEP"),]
+df_GPP<-df[df$Flux %in% c("GPP"),]
+df_Reco<-df[df$Flux %in% c("Respiration"),]
+df_NEP_GPP<-df[df$Flux %in% c("Ratio NEP-GPP"),]
+df_GPP_Reco<-df[df$Flux %in% c("Ratio GPP-ER"),]
+df_NEP_GPPmax<-df[df$Flux %in% c("Ratio NEP-GPPclimax"),]
+
+# Create plot per flux
+gg1<- ggplot(df_NEP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
+  geom_bar(stat="identity", fill="grey")+
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
+  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
+  facet_wrap(~Flux, scales="free_x")+
+  theme_bw(base_size = 16, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal")+
+  xlab("")+
+  ylab("Relative contribution (%)")
+
+gg2<- ggplot(df_GPP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
+  geom_bar(stat="identity", fill="grey")+
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
+  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
+  facet_wrap(~Flux, scales="free_x")+
+  theme_bw(base_size = 16, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal")+
+  xlab("")+
+  ylab("Relative contribution (%)")
+
+gg3<- ggplot(df_Reco, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
+  geom_bar(stat="identity", fill="grey")+
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
+  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
+  facet_wrap(~Flux, scales="free_x")+
+  theme_bw(base_size = 16, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal")+
+  xlab("")+
+  ylab("Relative contribution (%)")
+
+gg4<- ggplot(df_GPP_Reco, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
+  geom_bar(stat="identity", fill="grey")+
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
+  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
+  facet_wrap(~Flux, scales="free_x")+
+  theme_bw(base_size = 16, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal")+
+  xlab("")+
+  ylab("Relative contribution (%)")
+
+gg5<- ggplot(df_NEP_GPP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
+  geom_bar(stat="identity", fill="grey")+
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
+  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
+  facet_wrap(~Flux, scales="free_x")+
+  theme_bw(base_size = 16, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal")+
+  xlab("")+
+  ylab("Relative contribution (%)")
+
+gg6<- ggplot(df_NEP_GPPmax, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
+  geom_bar(stat="identity", fill="grey")+
+  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
+  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
+  facet_wrap(~Flux, scales="free_x")+
+  theme_bw(base_size = 16, base_family = "Helvetica") + 
+  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position="bottom", 
+        legend.box="horizontal")+
+  xlab("")+
+  ylab("Relative contribution (%)")
+
+#Plot all plots together
+pdf("Latex/Figures/VarImp_Flux_LMG.eps", width = 15, height = 12) # Open a new pdf file
+grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, nrow=2) # Write the grid.arrange in the file
+dev.off() # Close the file
+
+# 4. Plot observed vs. actual for the different flux
 pred_NEP<- NEP[c("Type_Flux", "values", "prediction")]
 pred_GPP<- GPP[c("Type_Flux", "values", "prediction")]
 pred_Reco<- Reco[c("Type_Flux", "values", "prediction")]
@@ -440,9 +839,9 @@ pdf("Latex/Figures/Pred_Flux.eps", width = 15, height = 10) # Open a new pdf fil
 grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, nrow=2) # Write the grid.arrange in the file
 dev.off() # Close the file
 
-# 2. Compute residual of fitted model vs. climate variables
+# 5. Compute residual of fitted model vs. climate variables
 
-# 2.1 NEP
+# 5.1 NEP
 
 # Compute residual
 NEP$Res<- residuals(Fun_NEP)
@@ -469,7 +868,7 @@ gg2 <- ggplot(data = NEP, aes(x = Annual_Preci, y = Res)) +
   annotate("text", label = "R-squared = 0.07", x = 3200, y = -325) +
   facet_wrap(~Type_Flux)
 
-# 2.2 GPP
+# 5.2 GPP
 
 # Compute residual
 GPP$Res<- residuals(Fun_GPP)
@@ -496,7 +895,7 @@ gg4 <- ggplot(data = GPP, aes(x = Annual_Preci, y = Res)) +
   annotate("text", label = "R-squared = 0.53", x = 3200, y = -800) +
   facet_wrap(~Type_Flux)
 
-# 2.3 Reco
+# 5.3 Reco
 
 # Compute residual
 Reco$Res<- residuals(Fun_Reco)
@@ -523,7 +922,7 @@ gg6 <- ggplot(data = Reco, aes(x = Annual_Preci, y = Res)) +
   annotate("text", label = "R-squared = 0.53", x = 3200, y = -700) +
   facet_wrap(~Type_Flux)
 
-# 2.4 Ratio GPP-Reco
+# 5.4 Ratio GPP-Reco
 levels(Ratio_GPP_Reco$Type_Flux) <- c("NEE", "GPP", "Respiration", "NEP", "mean_Uncert", "Ratio GPP-Reco", "Ratio NEP-GPP", "Ratio NEP-GPPmax")
 
 # Compute residual
@@ -553,7 +952,7 @@ gg8 <- ggplot(data = Ratio_GPP_Reco, aes(x = Annual_Preci, y = Res)) +
   annotate("text", label = "R-squared = 0.09", x = 3200, y = -0.4) +
   facet_wrap(~Type_Flux)
 
-# 2.5 Ratio NEP-GPP
+# 5.5 Ratio NEP-GPP
 levels(Ratio_NEP_GPP$Type_Flux) <- c("NEE", "GPP", "Respiration", "NEP", "mean_Uncert", "Ratio GPP-Reco", "Ratio NEP-GPP", "Ratio NEP-GPPmax")
 
 # Compute residual
@@ -583,7 +982,7 @@ gg10 <- ggplot(data = Ratio_NEP_GPP, aes(x = Annual_Preci, y = Res)) +
   annotate("text", label = "R-squared = 0.09", x = 3200, y = -0.55) +
   facet_wrap(~Type_Flux)
 
-# 2.6 Ratio NEP-GPPclimax
+# 5.6 Ratio NEP-GPPclimax
 
 # Compute residual
 Ratio_NEP_GPPmax$Res<- residuals(Fun_Ratio_NEP_GPPmax)
@@ -613,309 +1012,7 @@ gg12 <- ggplot(data = Ratio_NEP_GPPmax, aes(x = Annual_Preci, y = Res)) +
   annotate("text", label = "R-squared = 0.04", x = 3200, y = -0.5) +
   facet_wrap(~Type_Flux)
 
-# 2.6 Plot all graphs together
+# 5.7 Plot all graphs together
 pdf("Latex/Figures/Residual_Flux.eps", width = 17, height = 14) # Open a new pdf file
 grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, gg7, gg8, gg9, gg10, gg11, gg12, nrow=6) # Write the grid.arrange in the file
-dev.off() # Close the file
-
-
-# 3. Explain variabilty of the fluxes using linear regression analysis
-
-#. 3.1 NEP
-
-# 3.1.1 Compute Importance variable
-# Stepwise regression
-lm.NEP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=NEP)
-step.NEP<- step(lm.NEP, direction = "backward")
-print(step.NEP)
-summary(step.NEP)
-
-# VarImp estimation
-bootswiss <- boot.relimp(values~f_P + f_Tair + f_Age + f_P:f_Tair + 
-                           f_P:f_Age + f_Tair:f_Age, 
-                         data= NEP, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-
-# 3.1.2 Assess model performance
-NEP$prediction <- NA
-for(id in unique(NEP$Site_ID)){
-  train.df <- NEP[NEP$Site_ID != id,]
-  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  lm.NEP<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
-  step.NEP<- step(lm.NEP, direction = "backward")
-  NEP.pred = predict(object = step.NEP, newdata = test.df)
-  NEP$prediction[NEP$Site_ID == id] <- NEP.pred
-}
-
-R2_NEP<- cor(NEP$prediction, NEP$values)^2
-RMSE_NEP <- (sum((NEP$prediction-NEP$values)^2)/length(NEP$values))^(1/2)
-NSE_NEP<-NSE(NEP$prediction, NEP$values, na.rm=TRUE)
-Bias_NEP<-pbias(NEP$prediction, NEP$values)
-
-#. 3.2 GPP
-
-# 3.2.1 Compute Importance variable
-
-# Stepwise regression
-lm.GPP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=GPP)
-step.GPP<- stepAIC(lm.GPP, direction = "backward")
-print(step.GPP)
-summary(step.GPP)
-
-# VarImp estimation
-bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair + f_Tair:f_Age, 
-                         data= GPP, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-
-# 3.2.2 Assess model performance
-GPP$prediction <- NA
-for(id in unique(GPP$Site_ID)){
-  train.df <- GPP[GPP$Site_ID != id,]
-  test.df <- GPP[GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  lm.GPP<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
-  step.GPP<- step(lm.GPP, direction = "backward")
-  GPP.pred = predict(object = step.GPP, newdata = test.df)
-  GPP$prediction[GPP$Site_ID == id] <- GPP.pred
-}
-
-R2_GPP<- cor(GPP$prediction, GPP$values)^2
-RMSE_GPP <- (sum((GPP$prediction-GPP$values)^2)/length(GPP$values))^(1/2)
-NSE_GPP<-NSE(GPP$prediction, GPP$values, na.rm=TRUE)
-Bias_GPP<-pbias(GPP$prediction, GPP$values)  
-
-#. 3.3 Respiration
-
-# 3.3.1 Compute Importance variable
-
-# Stepwise regression
-lm.Reco<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Reco)
-step.Reco<- stepAIC(lm.Reco, direction = "backward")
-print(step.Reco)
-summary(step.Reco)
-
-# VarImp estimation
-bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair + f_Tair:f_Age, 
-                         data= Reco, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-
-# 3.3.2 Assess model performance
-Reco$prediction <- NA
-for(id in unique(Reco$Site_ID)){
-  train.df <- Reco[Reco$Site_ID != id,]
-  test.df <- Reco[Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  lm.Reco<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
-  step.Reco<- step(lm.Reco, direction = "backward")
-  Reco.pred = predict(object = step.Reco, newdata = test.df)
-  Reco$prediction[Reco$Site_ID == id] <- Reco.pred
-}
-
-R2_Reco<- cor(Reco$prediction, Reco$values)^2
-RMSE_Reco <- (sum((Reco$prediction-Reco$values)^2)/length(Reco$values))^(1/2)
-NSE_Reco<-NSE(Reco$prediction, Reco$values, na.rm=TRUE)
-Bias_Reco<-pbias(Reco$prediction, Reco$values)  
-
-#. 3.4 Ratio GPP-ER
-
-# 3.4.1 Compute Importance variable
-
-# Stepwise regression
-lm.Ratio_GPP_Reco<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Ratio_GPP_Reco)
-step.Ratio_GPP_Reco<- stepAIC(lm.Ratio_GPP_Reco, direction = "backward")
-print(step.Ratio_GPP_Reco)
-summary(step.Ratio_GPP_Reco)
-
-# VarImp estimation
-bootswiss <- boot.relimp(values~ (f_P + f_Tair + f_Age)^2, 
-                         data= Ratio_GPP_Reco, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-
-# 3.4.2 Assess model performance
-Ratio_GPP_Reco$prediction <- NA
-for(id in unique(Ratio_GPP_Reco$Site_ID)){
-  train.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID != id,]
-  test.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  lm.Ratio_GPP_Reco<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
-  step.Ratio_GPP_Reco<- step(lm.Ratio_GPP_Reco, direction = "backward")
-  Ratio_GPP_Reco.pred = predict(object = step.Ratio_GPP_Reco, newdata = test.df)
-  Ratio_GPP_Reco$prediction[Ratio_GPP_Reco$Site_ID == id] <- Ratio_GPP_Reco.pred
-}
-
-R2_Ratio_GPP_Reco<- cor(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)^2
-RMSE_Ratio_GPP_Reco <- (sum((Ratio_GPP_Reco$prediction-Ratio_GPP_Reco$values)^2)/length(Ratio_GPP_Reco$values))^(1/2)
-NSE_Ratio_GPP_Reco<-NSE(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values, na.rm=TRUE)
-Bias_Ratio_GPP_Reco<-pbias(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)  
-
-#. 3.5 Ratio NEP-GPP
-
-# 3.5.1 Compute Importance variable
-
-# Stepwise regression
-lm.Ratio_NEP_GPP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Ratio_NEP_GPP)
-step.Ratio_NEP_GPP<- stepAIC(lm.Ratio_NEP_GPP, direction = "backward")
-print(step.Ratio_NEP_GPP)
-summary(step.Ratio_NEP_GPP)
-
-# VarImp estimation
-bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair, 
-                         data= Ratio_NEP_GPP, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-
-# 3.5.2 Assess model performance
-Ratio_NEP_GPP$prediction <- NA
-for(id in unique(Ratio_NEP_GPP$Site_ID)){
-  train.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID != id,]
-  test.df <- Ratio_NEP_GPP[Ratio_NEP_GPP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  lm.Ratio_NEP_GPP<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
-  step.Ratio_NEP_GPP<- step(lm.Ratio_NEP_GPP, direction = "backward")
-  Ratio_NEP_GPP.pred = predict(object = step.Ratio_NEP_GPP, newdata = test.df)
-  Ratio_NEP_GPP$prediction[Ratio_NEP_GPP$Site_ID == id] <- Ratio_NEP_GPP.pred
-}
-
-R2_Ratio_NEP_GPP<- cor(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)^2
-RMSE_Ratio_NEP_GPP <- (sum((Ratio_NEP_GPP$prediction-Ratio_NEP_GPP$values)^2)/length(Ratio_NEP_GPP$values))^(1/2)
-NSE_Ratio_NEP_GPP<-NSE(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values, na.rm=TRUE)
-Bias_Ratio_NEP_GPP<-pbias(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)  
-
-#. 3.5 Ratio NEP-GPPmax
-
-# 3.5.1 Compute Importance variable
-
-# Stepwise regression
-lm.Ratio_NEP_GPPmax<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=Ratio_NEP_GPPmax)
-step.Ratio_NEP_GPPmax<- stepAIC(lm.Ratio_NEP_GPPmax, direction = "backward")
-print(step.Ratio_NEP_GPPmax)
-summary(step.Ratio_NEP_GPPmax)
-
-# VarImp estimation
-bootswiss <- boot.relimp(values~ (f_P + f_Tair + f_Age)^2, 
-                         data= Ratio_NEP_GPPmax, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-
-# 3.5.2 Assess model performance
-Ratio_NEP_GPPmax$prediction <- NA
-for(id in unique(Ratio_NEP_GPPmax$Site_ID)){
-  train.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID != id,]
-  test.df <- Ratio_NEP_GPPmax[Ratio_NEP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  lm.Ratio_NEP_GPPmax<- glm(values ~ (f_P + f_Tair + f_Age)^2, data=train.df)
-  step.Ratio_NEP_GPPmax<- step(lm.Ratio_NEP_GPPmax, direction = "backward")
-  Ratio_NEP_GPPmax.pred = predict(object = step.Ratio_NEP_GPPmax, newdata = test.df)
-  Ratio_NEP_GPPmax$prediction[Ratio_NEP_GPPmax$Site_ID == id] <- Ratio_NEP_GPPmax.pred
-}
-
-R2_Ratio_NEP_GPPmax<- cor(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)^2
-RMSE_Ratio_NEP_GPPmax <- (sum((Ratio_NEP_GPPmax$prediction-Ratio_NEP_GPPmax$values)^2)/length(Ratio_NEP_GPPmax$values))^(1/2)
-NSE_Ratio_NEP_GPPmax<-NSE(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, na.rm=TRUE)
-Bias_Ratio_NEP_GPPmax<-pbias(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)  
-
-# 3.6. Plot relative contribution output
-
-#Subset data
-df<-read.csv("Output/VarImp_Flux_LMG.csv", header = TRUE)
-df_NEP<-df[df$Flux %in% c("NEP"),]
-df_GPP<-df[df$Flux %in% c("GPP"),]
-df_Reco<-df[df$Flux %in% c("Respiration"),]
-df_NEP_GPP<-df[df$Flux %in% c("Ratio NEP-GPP"),]
-df_GPP_Reco<-df[df$Flux %in% c("Ratio GPP-ER"),]
-df_NEP_GPPmax<-df[df$Flux %in% c("Ratio NEP-GPPclimax"),]
-
-# Create plot per flux
-gg1<- ggplot(df_NEP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg2<- ggplot(df_GPP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg3<- ggplot(df_Reco, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg4<- ggplot(df_GPP_Reco, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg5<- ggplot(df_NEP_GPP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg6<- ggplot(df_NEP_GPPmax, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-#Plot all plots together
-pdf("Latex/Figures/VarImp_Flux_LMG.eps", width = 15, height = 12) # Open a new pdf file
-grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, nrow=2) # Write the grid.arrange in the file
 dev.off() # Close the file
