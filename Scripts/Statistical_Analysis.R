@@ -13,6 +13,7 @@ library (minpack.lm)
 library (randomForest)
 library (reshape)
 library (hydroGOF)
+library (relaimpo)
 
 #1 Explain variabilty of the fluxes using random forest approach
 
@@ -625,12 +626,13 @@ dev.off() # Close the file
 # 3.1.1 Compute Importance variable
 # Stepwise regression
 lm.NEP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=NEP)
-step.NEP<- stepAIC(lm.NEP, direction = "backward")
+step.NEP<- step(lm.NEP, direction = "backward")
 print(step.NEP)
 summary(step.NEP)
 
 # VarImp estimation
-bootswiss <- boot.relimp(values~f_P + f_Tair + f_P:f_Tair + f_P:f_Age + f_Tair:f_Age+ f_Age, 
+bootswiss <- boot.relimp(values~f_P + f_Tair + f_Age + f_P:f_Tair + 
+                           f_P:f_Age + f_Tair:f_Age, 
                          data= NEP, 
                          b = 100,  
                          type = "lmg",

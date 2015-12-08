@@ -7,6 +7,8 @@ stat_Reco <- function(dat) {
   Chen<-c()
   Coursolle<-c()
   Besnard<-c()
+  Gomp<-c()
+  Gomp_der<-c()
   for (i in id){
     fit1 <- try(nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data =  dat[dat$Site_ID != i,], 
                     start = list(A = 631.614933, B = 0.154252, k = -0.001269), control = list(maxiter = 500)), silent=TRUE);
@@ -29,11 +31,24 @@ stat_Reco <- function(dat) {
     fit7<-try(nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =   dat[dat$Site_ID != i,], 
                 start = list(A = 97.48020, B =  2.02373, C =  1.01784, D=-0.00725, E=915.23468, H=0.17385), control = list(maxiter = 500)), silent=TRUE);
     Besnard[[i]]<- if (inherits(fit7, "nls")) sim = predict(fit7, newdata=dat[dat$Site_ID == i,]) else NA;
+    fit8<-try(nlsLM(values~k*exp(-exp(A-B*Stand_Age)), data =dat[dat$Site_ID != i,], 
+                    start = list(A =  -0.3738, B = 0.1090, k = 1105.8678), control = list(maxiter = 500)), silent=TRUE);
+    Gomp[[i]]<- if (inherits(fit8, "nls")) sim = predict(fit8, newdata=dat[dat$Site_ID == i,]) else NA;
+    fit9<-try(nlsLM(values~B*(k*exp(-exp(A-B*Stand_Age)))*exp(A-B*Stand_Age), data = dat[dat$Site_ID != i,],
+                    start = list(A = 6.716e-01, B = 4.900e-03, k = 6.467e+05), control = list(maxiter = 500)), silent = TRUE);
+    Gomp_der[[i]]<- if (inherits(fit9, "nls")) sim = predict(fit9, newdata=dat[dat$Site_ID == i,]) else NA;
     
   }
   # list(Gamma, Second_Poly, Third_Poly, Amiro, Asympt)
-  c(NSE(melt(Gamma)$value, dat$values, na.rm=TRUE), NSE(melt(Second_Poly)$value, dat$values, na.rm=TRUE), 
+  list(c(NSE(melt(Gamma)$value, dat$values, na.rm=TRUE), NSE(melt(Second_Poly)$value, dat$values, na.rm=TRUE), 
     NSE(melt(Third_Poly)$value, dat$values, na.rm=TRUE), NSE(melt(Amiro)$value, dat$values, na.rm=TRUE ), 
     NSE(melt(Chen)$value, dat$values, na.rm=TRUE ), NSE(melt(Coursolle)$value, dat$values, na.rm=TRUE),
-    NSE(melt(Besnard)$value, dat$values, na.rm=TRUE))
+    NSE(melt(Besnard)$value, dat$values, na.rm=TRUE), NSE(melt(Gomp)$value, dat$values, na.rm=TRUE), 
+    NSE(melt(Gomp_der)$value, dat$values, na.rm=TRUE)),
+  c(cor(melt(Gamma)$value, dat$values)^2, cor(melt(Second_Poly)$value, dat$values)^2, 
+    cor(melt(Third_Poly)$value, dat$values)^2, cor(melt(Amiro)$value, dat$values)^2, 
+    cor(melt(Chen)$value, dat$values)^2, cor(melt(Coursolle)$value, dat$values)^2,
+    cor(melt(Besnard)$value, dat$values)^2, cor(melt(Gomp)$value, dat$values)^2, 
+    cor(melt(Gomp_der)$value, dat$values)^2))
+  
 }
