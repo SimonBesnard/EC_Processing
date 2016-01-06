@@ -11,31 +11,31 @@ stat_Reco <- function(dat) {
   Gomp_der<-c()
   for (i in id){
     fit1 <- try(nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data =  dat[dat$Site_ID != i,], 
-                    start = list(A = 631.614933, B = 0.154252, k = -0.001269), control = list(maxiter = 500)), silent=TRUE);
+                    start = list(A =  629.607878, B = 0.184977, k = -0.002391), control = list(maxiter = 500)), silent=TRUE);
     Gamma[[i]] <- if (inherits(fit1, "nls")) sim = predict(fit1, newdata=dat[dat$Site_ID == i,]) else NA;
     fit2 <- try(nlsLM(values~A*Stand_Age^2+B*Stand_Age+C, data =  dat[dat$Site_ID != i,], 
-                    start = list(A=-0.01064, B=3.47055, C=895.44346), control = list(maxiter = 500)), silent=TRUE);
+                    start = list(A=-0.01157, B=2.95581, C=978.61308), control = list(maxiter = 500)), silent=TRUE);
     Second_Poly[[i]] <- if (inherits(fit2, "nls")) sim = predict(fit2, newdata=dat[dat$Site_ID == i,])else NA; 
     fit3 <- try(nlsLM(values~A*Stand_Age^3+B*Stand_Age^2+C*Stand_Age + D, data =  dat[dat$Site_ID != i,], 
-                    start = list(A= 1.326e-04, B=-6.246e-02, C= 8.412e+00, D=7.970e+02), control = list(maxiter = 500)), silent=TRUE); 
+                    start = list(A= 0.000261, B=-0.108338, C=  12.066014, D=793.968327), control = list(maxiter = 500)), silent=TRUE); 
     Third_Poly[[i]]<- if (inherits(fit3, "nls")) sim = predict(fit3, newdata=dat[dat$Site_ID == i,]) else NA; 
     fit4 <- try(nlsLM(values~A*(1-exp(k*Stand_Age)), data =  dat[dat$Site_ID != i,], 
-                    start = list(A=1093.452, k= -0.235), control = list(maxiter = 500)), silent=TRUE); # A=1 for ratio NEP-GPP
+                    start = list(A=1136.416, k= -0.222), control = list(maxiter = 500)), silent=TRUE); # A=1 for ratio NEP-GPP
     Amiro[[i]]<- if (inherits(fit4, "nls")) sim = predict(fit4, newdata=dat[dat$Site_ID == i,]) else NA;
     fit5 <- try(nlsLM(values~A*(1+((B*((Stand_Age/C)^D)-1)/(exp(Stand_Age/C)))), data =   dat[dat$Site_ID != i,], 
-                      start = list(A = 1109.8105, B = 0.9577, C = 48.3899, D=0.1537), control = list(maxiter = 500)), silent=TRUE); 
+                      start = list(A = 1143.1378, B = 0.1117, C = 6.7213, D= -1.2050), control = list(maxiter = 500)), silent=TRUE); 
     Chen[[i]]<- if (inherits(fit5, "nls")) sim = predict(fit5, newdata=dat[dat$Site_ID == i,]) else NA;
     fit6 <- try(nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data =  dat[dat$Site_ID != i,],
-                      start = list(A=1.081e+03, B= 2.627e-04, C=-5.352e+02, D=-1.037e-01), control = list(maxiter = 500)), silent=TRUE); 
+                      start = list(A=1.208e+03, B= -5.859e-04, C=-6.353e+02, D=-8.481e-02), control = list(maxiter = 500)), silent=TRUE); 
     Coursolle[[i]]<- if (inherits(fit6, "nls")) sim = predict(fit6, newdata=dat[dat$Site_ID == i,]) else NA;
     fit7<-try(nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =   dat[dat$Site_ID != i,], 
-                start = list(A = 97.48020, B =  2.02373, C =  1.01784, D=-0.00725, E=915.23468, H=0.17385), control = list(maxiter = 500)), silent=TRUE);
+                start = list(A = 1.314e+01, B =  4.670e-18, C = 2.588e+00, D=1.038e-01, E=1.126e+03, H= 1.474e-01), control = list(maxiter = 500)), silent=TRUE);
     Besnard[[i]]<- if (inherits(fit7, "nls")) sim = predict(fit7, newdata=dat[dat$Site_ID == i,]) else NA;
     fit8<-try(nlsLM(values~k*exp(-exp(A-B*Stand_Age)), data =dat[dat$Site_ID != i,], 
-                    start = list(A =  -0.3738, B = 0.1090, k = 1105.8678), control = list(maxiter = 500)), silent=TRUE);
+                    start = list(A =   -0.3175, B = 0.1280, k = 1142.7446), control = list(maxiter = 500)), silent=TRUE);
     Gomp[[i]]<- if (inherits(fit8, "nls")) sim = predict(fit8, newdata=dat[dat$Site_ID == i,]) else NA;
     fit9<-try(nlsLM(values~B*(k*exp(-exp(A-B*Stand_Age)))*exp(A-B*Stand_Age), data = dat[dat$Site_ID != i,],
-                    start = list(A = 6.716e-01, B = 4.900e-03, k = 6.467e+05), control = list(maxiter = 500)), silent = TRUE);
+                    start = list(A = 6.472e-01, B = 6.462e-03, k = 4.988e+05), control = list(maxiter = 500)), silent = TRUE);
     Gomp_der[[i]]<- if (inherits(fit9, "nls")) sim = predict(fit9, newdata=dat[dat$Site_ID == i,]) else NA;
     
   }
