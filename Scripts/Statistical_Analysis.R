@@ -54,19 +54,6 @@ Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "I
 colnames(Ratio_NEP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
                               "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
-#Compute ratio GPP/GPPmax
-GPP$GPP_GPPmax<- GPP$values/GPP$GPPmax
-Ratio_GPP_GPPmax<- GPP
-Ratio_GPP_GPPmax<-Ratio_GPP_GPPmax[, !(colnames(Ratio_GPP_GPPmax) %in% c("values", "Type_Flux", "GPPmat", "GPPmax", "GPPp", "NEP_GPPmax"))]
-Ratio_GPP_GPPmax<-gather(Ratio_GPP_GPPmax, variable, values, -Annual_Preci, -year, 
-                         -Ecosystem, -Climate, -Disturbance,
-                         -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                         -Tair, -Rg, -Study, -Lat, -Long)
-Ratio_GPP_GPPmax<- Ratio_GPP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "values", "Annual_Preci", 
-                                      "Tair","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
-colnames(Ratio_GPP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                              "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
-
 # 1.2 Analysis for NEP
 
 #1.2.1 Compute transform function
@@ -75,19 +62,25 @@ colnames(Ratio_GPP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Repla
 Fun_NEP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = NEP,
                start = list(A= 2.379e+02, B= -3.295e-03, C=-7.879e+02, D=-1.519e-01), control = list(maxiter = 500))
 coef(Fun_NEP)
-f_Age_NEP<- function (x) {2.378735e+02*(exp(-3.295241e-03*x)) -7.878536e+02*(exp(-1.518790e-01*x))}
+f_Age_NEP<- function (x) {2.733525e+02*(exp(-4.833778e-03*x)) -9.306851e+02*(exp(-1.581659e-01*x))}
 
 #Tair
-Fun_Tair<-nlsLM(values~A/(1+exp(1.1315-0.119*Tair)), data = NEP,
-                start = list(A= 200), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/NEP_MAT.R")
+stat_Temp(NEP)
+Fun_Tair<-nlsLM(values~A*Tair^2+B*Tair+C, data = NEP, 
+                start = list(A=-0.9222 , B=32.9461, C= 6.5651), control = list(maxiter = 500))
 coef(Fun_Tair)
-f_Tair_NEP<- function (x) {384.0151 /(1+exp(1.1315-0.119*x))}
+f_Tair_NEP<- function (x) {-1.009603*x^2 + 34.987696*x+1.015450}
 
 #Precipitation
-Fun_Preci<-nlsLM(values~A*(1-exp(-0.000664*Annual_Preci)), data = NEP,
-                 start = list(A= 300), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/NEP_P.R")
+stat_P(NEP)
+Fun_Preci<-nlsLM(values~A*(1-exp(-B*Annual_Preci)), data = NEP,
+                 start = list(A= 300, B=0.000664), control = list(maxiter = 500))
 coef(Fun_Preci)
-f_P_NEP<- function (x) {380.0814*(1-exp(-0.000664*x))}
+f_P_NEP<- function (x) {2.600086e+02*(1-exp(-1.340978e-03*x))}
 
 # 1.2.2 Compute random forest with climate variables and stand age
 NEPyoung<- subset(NEP, Stand_Age < 50)
@@ -121,19 +114,25 @@ Bias_NEP<-pbias(NEP$prediction, NEP$values)
 Fun_GPP<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = GPP, 
                start = list(A=1287.1816, k= -0.1344), control = list(maxiter = 500))
 coef(Fun_GPP)
-f_Age_GPP<- function (x) {1287.1921959 *(1-exp(-0.1343273*x))}
+f_Age_GPP<- function (x) {1327.4648916*(1-exp(-0.1340345*x))}
 
 #Tair
-Fun_Tair<-nlsLM(values~A/(1+exp(1.1315-0.119*Tair)), data = GPP,
-                start = list(A= 1500), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/GPP_MAT.R")
+stat_GPP_Temp(GPP)
+Fun_Tair<-nlsLM(values~A*Tair^3+B*Tair^2+C*Tair+D, data = GPP, 
+                start = list(A=-0.02505, B=-0.11885, C= 28.03883, D=4.61699), control = list(maxiter = 500))
 coef(Fun_Tair)
-f_Tair_GPP<- function (x) {2880.45/(1+exp(1.1315-0.119*x))}
+f_Tair_GPP<- function (x) {0.399219*x^3-12.723334*x^2+164.316298*x+ 692.099491}
 
 #Precipitation
-Fun_Preci<-nlsLM(values~A*(1-exp(-0.000664*Annual_Preci)), data = GPP,
-                 start = list(A= 1500), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/GPP_P.R")
+stat_GPP_P(GPP)
+Fun_Preci<-nlsLM(values~A*Annual_Preci^2+B*Annual_Preci+C, data = GPP, 
+                 start = list(A=-4.945e-05 , B=1.012e+00, C= 4.204e+02), control = list(maxiter = 500))
 coef(Fun_Preci)
-f_P_GPP<- function (x) {3047.819*(1-exp(-0.000664*x))}
+f_P_GPP<- function (x) {-5.166658e-05*x^2+ 1.054130e+00*x+4.348844e+02}
 
 # 1.3.2 Compute random forest with climate variables and stand age
 GPPyoung<- subset(GPP, Stand_Age < 50)
@@ -167,19 +166,25 @@ Bias_GPP<-pbias(GPP$prediction, GPP$values)
 Fun_Reco<-nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = Reco, 
                 start = list(A = 631.614933, B = 0.154252, k = -0.001269), control = list(maxiter = 500))
 coef(Fun_Reco)
-f_Age_Reco<- function (x) {631.617082164*(x^0.154251100)*(exp(-0.001269377 *x))}
+f_Age_Reco<- function (x) {629.602900327*(x^0.184980172)*(exp(-0.002391013*x))}
 
 #Tair
-Fun_Tair<-nlsLM(values~A/(1+exp(1.1315-0.119*Tair)), data = Reco,
-                start = list(A= 1500), control = list(maxiter = 500))
+# Select the best function and implement it
+source('Function/Reco_MAT.R')
+stat_Reco_Temp(Reco)
+Fun_Tair<-nlsLM(values~A*Tair^3+B*Tair^2+C*Tair+D, data = Reco, 
+      start = list(A=-0.02505, B=-0.11885, C= 28.03883, D=4.61699), control = list(maxiter = 500))
 coef(Fun_Tair)
-f_Tair_Reco<- function (x) {2487.264/(1+exp(1.1315-0.119*x))}
+f_Tair_Reco<- function (x) {0.4428747*x^3-13.1455278*x^2+138.5845919*x+691.5047390}
 
 #Precipitation
-Fun_Preci<-nlsLM(values~A*(1-exp(-0.000664*Annual_Preci)), data = Reco,
-                 start = list(A= 1500), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/Reco_P.R")
+stat_Reco_P(Reco)
+Fun_Preci<-nlsLM(values~A*Annual_Preci^2+B*Annual_Preci+C, data = Reco, 
+                 start = list(A=3.583e-05, B=6.324e-01, C= 5.028e+02), control = list(maxiter = 500))
 coef(Fun_Preci)
-f_P_Reco<- function (x) {2640.012*(1-exp(-0.000664*x))}
+f_P_Reco<- function (x) {3.735209e-05*x^2+7.243895e-01*x+4.692115e+02}
 
 # 1.4.2 Compute random forest with climate variables and stand age
 Recoyoung<- subset(Reco, Stand_Age < 50)
@@ -214,19 +219,25 @@ Bias_Reco<-pbias(Reco$prediction, Reco$values)
 Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco, 
                          start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
 coef(Fun_Ratio_GPP_Reco)
-f_Age_Ratio_GPP_Reco<- function (x) {1.1582127*(1-exp(-0.2312178*x))}
+f_Age_Ratio_GPP_Reco<- function (x) {1.1634542*(1-exp(-0.2283577*x))}
 
 #Tair
-Fun_Tair<-nlsLM(values~A/(1+exp(B-C*Tair)), data = Ratio_GPP_Reco,
-                start = list(A= 1.2, B=1.1315, C=0.119), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/GPP_ER_MAT.R")
+stat_GPP_ER_Temp(Ratio_GPP_Reco)
+Fun_Tair<-nlsLM(values~A*Tair^2+B*Tair+C, data = Ratio_GPP_Reco, 
+                start = list(A=-0.9222 , B=32.9461, C= 6.5651), control = list(maxiter = 500))
 coef(Fun_Tair)
-f_Tair_Ratio_GPP_Reco<- function (x) {1.2423580/(1+exp(-1.3658204-0.2106015*x))}
+f_Tair_Ratio_GPP_Reco<- function (x) {-0.001279122*x^2+ 0.038416701*x+ 0.975262236}
 
 #Precipitation
-Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_GPP_Reco,
-                 start = list(A= 1.2, B=-0.000664), control = list(maxiter = 500))
+# Select the best function and implement it
+source ("Function/GPP_ER_P.R")
+stat_GPP_ER_P(Ratio_GPP_Reco)
+Fun_Preci<-nlsLM(values~A*Annual_Preci^2+B*Annual_Preci+C, data = Ratio_GPP_Reco, 
+                 start = list(A=-8.514e-05 , B=3.341e-01, C= -4.485e+01), control = list(maxiter = 500))
 coef(Fun_Preci)
-f_P_Ratio_GPP_Reco<- function (x) {1.14234501*(1-exp(-0.00930973*x))}
+f_P_Ratio_GPP_Reco<- function (x) {-7.391232e-08*x^2+2.477684e-04*x+9.941080e-01}
 
 # 1.5.2 Compute random forest with climate variables and stand age
 Ratio_GPP_Recoyoung<- subset(Ratio_GPP_Reco, Stand_Age < 50)
@@ -261,19 +272,25 @@ Bias_Ratio_GPP_Reco<-pbias(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)
 Fun_Ratio_NEP_GPP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPP,
                          start = list(A=0.165450, B= -0.003772, C=-1.319022, D=-0.148503), control = list(maxiter = 500))
 coef(Fun_Ratio_NEP_GPP)
-f_Age_Ratio_NEP_GPP<- function (x) {0.165451439*(exp(-0.003771699*x)) -1.319022091*(exp(-0.148502307*x))}
+f_Age_Ratio_NEP_GPP<- function (x) { 0.204817937*(exp(-0.006598538*x)) -1.411067753*(exp(-0.145227320*x))}
 
 #Tair
-Fun_Tair<-nlsLM(values~A/(1+exp(1.1315-0.119*Tair)), data = Ratio_NEP_GPP,
-                start = list(A= 0.2), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/NEP_GPP_MAT.R")
+stat_NEP_GPP_Temp(Ratio_NEP_GPP)
+Fun_Tair<-nlsLM(values~A*Tair^2+B*Tair+C, data = Ratio_NEP_GPP, 
+                start = list(A=-0.9222 , B=32.9461, C= 6.5651), control = list(maxiter = 500))
 coef(Fun_Tair)
-f_Tair_Ratio_NEP_GPP<- function (x) {0.1947947/(1+exp(1.1315-0.119*x))}
+f_Tair_Ratio_NEP_GPP<- function (x) {-0.001170988*x^2+0.036250784*x-0.085919996}
 
 #Precipitation
-Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_NEP_GPP,
-                 start = list(A= 0.2, B=-0.000664), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/NEP_GPP_P.R")
+stat_NEP_GPP_P(Ratio_NEP_GPP)
+Fun_Preci<-nlsLM(values~A*(1-exp(-B*Annual_Preci)), data = Ratio_NEP_GPP,
+                 start = list(A= 300, B=0.000664), control = list(maxiter = 500))
 coef(Fun_Preci)
-f_P_Ratio_NEP_GPP<- function (x) {0.125614244*(1-exp(-0.001029606*x))}
+f_P_Ratio_NEP_GPP<- function (x) {0.111524112*(1-exp(0.001283931*x))}
 
 # 1.6.2 Compute random forest with climate variables and stand age
 Ratio_NEP_GPPyoung<- subset(Ratio_NEP_GPP, Stand_Age < 50)
@@ -308,19 +325,25 @@ Bias_Ratio_NEP_GPP<-pbias(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)
 Fun_Ratio_NEP_GPPmax<-Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax,
                                                   start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
 coef(Fun_Ratio_NEP_GPPmax)
-f_Age_Ratio_NEP_GPPmax<- function (x) {-0.673035335*(exp(-0.089879738*x)) + 0.250875785*(exp(-0.005593567*x))}
+f_Age_Ratio_NEP_GPPmax<- function (x) {-0.788829998*(exp(-0.108685187*x)) + 0.280975200*(exp(-0.006982269*x))}
 
 #Tair
-Fun_Tair<-nlsLM(values~A/(1+exp(B-C*Tair)), data = Ratio_NEP_GPPmax,
-                start = list(A= 0.2, B=1.1315, C=0.119), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/NEP_GPPmax_MAT.R")
+stat_NEP_GPPmax_Temp(Ratio_NEP_GPPmax)
+Fun_Tair<-nlsLM(values~A*Tair^2+B*Tair+C, data = Ratio_NEP_GPPmax, 
+                start = list(A=-0.9222 , B=32.9461, C= 6.5651), control = list(maxiter = 500))
 coef(Fun_Tair)
-f_Tair_Ratio_NEP_GPPmax<- function (x) {0.1848171/(1+exp(14.7522288-6.4277945*x))}
+f_Tair_Ratio_NEP_GPPmax<- function (x) {-0.001191501*x^2+  0.036452338*x-0.021782015}
 
 #Precipitation
-Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_NEP_GPPmax,
-                 start = list(A= 0.2, B=-0.000664), control = list(maxiter = 500))
+# Select the best function and implement it
+source("Function/NEP_GPPmax_P.R")
+stat_NEP_GPPmax_P(Ratio_NEP_GPPmax)
+Fun_Preci<-nlsLM(values~A*(1-exp(-B*Annual_Preci)), data = Ratio_NEP_GPPmax,
+                 start = list(A= 300, B=0.000664), control = list(maxiter = 500))
 coef(Fun_Preci)
-f_P_Ratio_NEP_GPPmax<- function (x) {0.15361297*(1-exp(-0.00241885*x))}
+f_P_Ratio_NEP_GPPmax<- function (x) {0.152576614*(1-exp(0.002863714*x))}
 
 # 1.7.2 Compute random forest with climate variables and stand age
 Ratio_NEP_GPPmaxyoung<- subset(Ratio_NEP_GPPmax, Stand_Age < 50)
@@ -347,68 +370,19 @@ RMSE_Ratio_NEP_GPPmax <- (sum((Ratio_NEP_GPPmax$prediction-Ratio_NEP_GPPmax$valu
 NSE_Ratio_NEP_GPPmax<-NSE(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, na.rm=TRUE)
 Bias_Ratio_NEP_GPPmax<-pbias(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)
 
-# 1.8 Analysis for Ratio GPP-GPPclimax
-
-#1.8.1 Compute transform function
-
-#Age
-Fun_Ratio_GPP_GPPmax<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_GPPmax, 
-                         start = list(A= 0.6575, k= -0.1007), control = list(maxiter = 500))
-coef(Fun_Ratio_GPP_GPPmax)
-f_Age_Ratio_GPP_GPPmax<- function (x) {1.1579471*(1-exp(-0.1310897*x))}
-
-#Tair
-Fun_Tair<-nlsLM(values~A/(1+exp(B-C*Tair)), data = Ratio_GPP_GPPmax,
-                start = list(A= 1.2, B=1.1315, C=0.119), control = list(maxiter = 500))
-coef(Fun_Tair)
-f_Tair_Ratio_GPP_GPPmax<- function (x) {1.194075 /(1+exp(-1.416043-0.278409*x))}
-
-#Precipitation
-Fun_Preci<-nlsLM(values~A*(1-exp(B*Annual_Preci)), data = Ratio_GPP_GPPmax,
-                 start = list(A= 1.2, B=-0.000664), control = list(maxiter = 500))
-coef(Fun_Preci)
-f_P_Ratio_GPP_GPPmax<- function (x) {1.0928786*(1-exp(-0.1138259*x))}
-
-# 1.8.2 Compute random forest with climate variables and stand age
-Ratio_GPP_GPPmaxyoung<- subset(Ratio_GPP_GPPmax, Stand_Age < 50)
-Ratio_GPP_GPPmaxold<- subset(Ratio_GPP_GPPmax, Stand_Age > 50)
-Ratio_GPP_GPPmax$f_P<- f_P_Ratio_GPP_GPPmax(Ratio_GPP_GPPmax$Annual_Preci)
-Ratio_GPP_GPPmax$f_Tair<- f_Tair_Ratio_GPP_GPPmax(Ratio_GPP_GPPmax$Tair)
-Ratio_GPP_GPPmax$f_Age<- f_Age_Ratio_GPP_GPPmax(Ratio_GPP_GPPmax$Stand_Age)
-Ratio_GPP_GPPmax<- Ratio_GPP_GPPmax[c("Site_ID",  "Type_Flux", "Annual_Preci", "Tair", "Rg", "Stand_Age", "f_P", "f_Tair", "f_Age", "values")]
-Ratio_GPP_GPPmax$prediction <- NA
-for(id in unique(Ratio_GPP_GPPmax$Site_ID)){
-  train.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID != id,]
-  test.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  Ratio_GPP_GPPmax.ruf <- randomForest(values~f_P + f_Tair + f_Age + Annual_Preci + Tair + Stand_Age, 
-                                     data = train.df,
-                                     importance = T, 
-                                     ntree=2000)
-  Ratio_GPP_GPPmax.ruf.pred = predict(object = Ratio_GPP_GPPmax.ruf, newdata = test.df)
-  Ratio_GPP_GPPmax$prediction[Ratio_GPP_GPPmax$Site_ID == id] <- Ratio_GPP_GPPmax.ruf.pred
-}
-
-importance(Ratio_GPP_GPPmax.ruf)
-R2_Ratio_GPP_GPPmax<- cor(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)^2
-RMSE_Ratio_GPP_GPPmax <- (sum((Ratio_GPP_GPPmax$prediction-Ratio_GPP_GPPmax$values)^2)/length(Ratio_GPP_GPPmax$values))^(1/2)
-NSE_Ratio_GPP_GPPmax<-NSE(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values, na.rm=TRUE)
-Bias_Ratio_GPP_GPPmax<-pbias(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)  
-
 # 2. Explain variabilty of the fluxes using linear regression analysis
 
 #. 2.1 NEP
 
 # 2.1.1 Compute Importance variable
 # Stepwise regression
-NEPyoung<- subset(NEP, Stand_Age < 50)
-NEPold<- subset(NEP, Stand_Age > 50)
 lm.NEP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=NEP)
 step.NEP<- step(lm.NEP, direction = "backward")
 print(step.NEP)
 summary(step.NEP)
 
 # VarImp estimation
-bootswiss <- boot.relimp(values~(f_P + f_Tair + f_Age)^2, 
+bootswiss <- boot.relimp(values~f_Tair + f_Age + f_Tair:f_Age, 
                          data= NEP, 
                          b = 100,  
                          type = "lmg",
@@ -427,7 +401,7 @@ for(id in unique(NEP$Site_ID)){
 }
 
 R2_NEP<- cor(NEP$prediction, NEP$values)^2
-RMSE_NEP <- (sum((NEP$prediction-NEP$values)^2)/length(NEP$values))^(1/2)
+RMSE_NEP <- rmse(NEP$prediction, NEP$values)
 NSE_NEP<-NSE(NEP$prediction, NEP$values, na.rm=TRUE)
 Bias_NEP<-pbias(NEP$prediction, NEP$values)
 
@@ -436,16 +410,13 @@ Bias_NEP<-pbias(NEP$prediction, NEP$values)
 # 2.2.1 Compute Importance variable
 
 # Stepwise regression
-GPPyoung<- subset(GPP, Stand_Age < 50)
-GPPold<- subset(GPP, Stand_Age > 50)
-
 lm.GPP<-lm(values ~ (f_P + f_Tair + f_Age)^2, data=GPP)
 step.GPP<- stepAIC(lm.GPP, direction = "backward")
 print(step.GPP)
 summary(step.GPP)
 
 # VarImp estimation
-bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair + f_Tair:f_Age, 
+bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_Tair:f_Age, 
                          data= GPP, 
                          b = 100,  
                          type = "lmg",
@@ -479,11 +450,11 @@ print(step.Reco)
 summary(step.Reco)
 
 # VarImp estimation
-bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair + f_Tair:f_Age, 
-                         data= Reco, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
+bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair, 
+                           data= Reco, 
+                           b = 100,  
+                           type = "lmg",
+                           rank = TRUE, diff = TRUE, rela = TRUE)
 print(booteval.relimp(bootswiss))
 
 # 2.3.2 Assess model performance
@@ -513,12 +484,12 @@ print(step.Ratio_GPP_Reco)
 summary(step.Ratio_GPP_Reco)
 
 # VarImp estimation
-bootswiss <- boot.relimp(values~ (f_P + f_Tair + f_Age)^2, 
-                         data= Ratio_GPP_Reco, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
+  bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair, 
+                           data= Ratio_GPP_Reco, 
+                           b = 100,  
+                           type = "lmg",
+                           rank = TRUE, diff = TRUE, rela = TRUE)
+  print(booteval.relimp(bootswiss))
 
 # 2.4.2 Assess model performance
 Ratio_GPP_Reco$prediction <- NA
@@ -547,7 +518,7 @@ print(step.Ratio_NEP_GPP)
 summary(step.Ratio_NEP_GPP)
 
 # VarImp estimation
-bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Tair, 
+bootswiss <- boot.relimp(values~ f_P + f_Tair + f_Age + f_P:f_Age, 
                          data= Ratio_NEP_GPP, 
                          b = 100,  
                          type = "lmg",
@@ -581,7 +552,7 @@ print(step.Ratio_NEP_GPPmax)
 summary(step.Ratio_NEP_GPPmax)
 
 # VarImp estimation
-bootswiss <- boot.relimp(values~ (f_P + f_Tair + f_Age)^2, 
+bootswiss <- boot.relimp(values~ f_Tair + f_Age + f_Tair:f_Age, 
                          data= Ratio_NEP_GPPmax, 
                          b = 100,  
                          type = "lmg",
@@ -604,136 +575,7 @@ RMSE_Ratio_NEP_GPPmax <- (sum((Ratio_NEP_GPPmax$prediction-Ratio_NEP_GPPmax$valu
 NSE_Ratio_NEP_GPPmax<-NSE(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values, na.rm=TRUE)
 Bias_Ratio_NEP_GPPmax<-pbias(Ratio_NEP_GPPmax$prediction, Ratio_NEP_GPPmax$values)
 
-#. 2.7 Ratio NEP-GPPmax
-
-# 2.7.1 Compute Importance variable
-
-# Stepwise regression
-lm.Ratio_GPP_GPPmax<-lm(values ~ (f_P + f_Tair + f_Age + Annual_Preci + Tair + Stand_Age)^2, data=Ratio_GPP_GPPmax)
-step.Ratio_GPP_GPPmax<- stepAIC(lm.Ratio_GPP_GPPmax, direction = "backward")
-print(step.Ratio_GPP_GPPmax)
-summary(step.Ratio_GPP_GPPmax)
-
-# VarImp estimation
-bootswiss <- boot.relimp(values~ f_Tair + f_Age + Annual_Preci + f_Tair:Annual_Preci, 
-                         data= Ratio_GPP_GPPmax, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = TRUE)
-print(booteval.relimp(bootswiss))
-
-# 2.7.2 Assess model performance
-Ratio_GPP_GPPmax$prediction <- NA
-for(id in unique(Ratio_GPP_GPPmax$Site_ID)){
-  train.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID != id,]
-  test.df <- Ratio_GPP_GPPmax[Ratio_GPP_GPPmax$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age")]
-  lm.Ratio_GPP_GPPmax<- glm(values ~ f_Tair + f_Age + Annual_Preci + f_Tair:Annual_Preci, data=train.df)
-  step.Ratio_GPP_GPPmax<- step(lm.Ratio_GPP_GPPmax, direction = "backward")
-  Ratio_GPP_GPPmax.pred = predict(object = step.Ratio_GPP_GPPmax, newdata = test.df)
-  Ratio_GPP_GPPmax$prediction[Ratio_GPP_GPPmax$Site_ID == id] <- Ratio_GPP_GPPmax.pred
-}
-
-R2_Ratio_GPP_GPPmax<- cor(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)^2
-RMSE_Ratio_GPP_GPPmax <- (sum((Ratio_GPP_GPPmax$prediction-Ratio_GPP_GPPmax$values)^2)/length(Ratio_GPP_GPPmax$values))^(1/2)
-NSE_Ratio_GPP_GPPmax<-NSE(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values, na.rm=TRUE)
-Bias_Ratio_GPP_GPPmax<-pbias(Ratio_GPP_GPPmax$prediction, Ratio_GPP_GPPmax$values)  
-
-# 3. Plot relative contribution output
-
-#Subset data
-df<-read.csv("Output/VarImp_Flux_LMG.csv", header = TRUE)
-df_NEP<-df[df$Flux %in% c("NEP"),]
-df_GPP<-df[df$Flux %in% c("GPP"),]
-df_Reco<-df[df$Flux %in% c("Respiration"),]
-df_NEP_GPP<-df[df$Flux %in% c("Ratio NEP-GPP"),]
-df_GPP_Reco<-df[df$Flux %in% c("Ratio GPP-ER"),]
-df_NEP_GPPmax<-df[df$Flux %in% c("Ratio NEP-GPPclimax"),]
-
-# Create plot per flux
-gg1<- ggplot(df_NEP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg2<- ggplot(df_GPP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg3<- ggplot(df_Reco, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg4<- ggplot(df_GPP_Reco, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg5<- ggplot(df_NEP_GPP, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-gg6<- ggplot(df_NEP_GPPmax, aes(x=reorder(Predictor, -Percentage), y=Percentage)) +
-  geom_bar(stat="identity", fill="grey")+
-  geom_errorbar(aes(ymin=Lower, ymax=Upper), colour="black", width=.1) +
-  scale_y_continuous(labels = percent_format(), limits=c(0,1))+
-  facet_wrap(~Flux, scales="free_x")+
-  theme_bw(base_size = 16, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  xlab("")+
-  ylab("Relative contribution (%)")
-
-#Plot all plots together
-pdf("Latex/Figures/VarImp_Flux_LMG.eps", width = 15, height = 12) # Open a new pdf file
-grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, nrow=2) # Write the grid.arrange in the file
-dev.off() # Close the file
-
-# 4. Plot observed vs. actual for the different flux
+# 3. Plot observed vs. actual for the different flux
 pred_NEP<- NEP[c("Type_Flux", "values", "prediction")]
 pred_GPP<- GPP[c("Type_Flux", "values", "prediction")]
 pred_Reco<- Reco[c("Type_Flux", "values", "prediction")]
@@ -839,9 +681,9 @@ pdf("Latex/Figures/Pred_Flux.eps", width = 15, height = 10) # Open a new pdf fil
 grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, nrow=2) # Write the grid.arrange in the file
 dev.off() # Close the file
 
-# 5. Compute residual of fitted model vs. climate variables
+# 4. Compute residual of fitted model vs. climate variables
 
-# 5.1 NEP
+# 4.1 NEP
 
 # Compute residual
 NEP$Res<- residuals(Fun_NEP)
@@ -856,7 +698,7 @@ gg1 <- ggplot(data = NEP, aes(x = Tair, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Air temperature (°C)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.16", x = 23, y = -325) +
+  annotate("text", label = "R-squared = 0.13", x = 23, y = -325) +
   facet_wrap(~Type_Flux)
 
 gg2 <- ggplot(data = NEP, aes(x = Annual_Preci, y = Res)) +
@@ -865,10 +707,10 @@ gg2 <- ggplot(data = NEP, aes(x = Annual_Preci, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Precipitation (mm)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.07", x = 3200, y = -325) +
+  annotate("text", label = "R-squared = 0.04", x = 3200, y = -325) +
   facet_wrap(~Type_Flux)
 
-# 5.2 GPP
+# 4.2 GPP
 
 # Compute residual
 GPP$Res<- residuals(Fun_GPP)
@@ -883,7 +725,7 @@ gg3 <- ggplot(data = GPP, aes(x = Tair, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Air temperature (°C)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.53", x = 23, y = -800) +
+  annotate("text", label = "R-squared = 0.58", x = 23, y = -800) +
   facet_wrap(~Type_Flux)
 
 gg4 <- ggplot(data = GPP, aes(x = Annual_Preci, y = Res)) +
@@ -892,10 +734,10 @@ gg4 <- ggplot(data = GPP, aes(x = Annual_Preci, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Precipitation (mm)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.53", x = 3200, y = -800) +
+  annotate("text", label = "R-squared = 0.54", x = 3200, y = -800) +
   facet_wrap(~Type_Flux)
 
-# 5.3 Reco
+# 4.3 Reco
 
 # Compute residual
 Reco$Res<- residuals(Fun_Reco)
@@ -910,7 +752,7 @@ gg5 <- ggplot(data = Reco, aes(x = Tair, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Air temperature (°C)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.43", x = 23, y = -700) +
+  annotate("text", label = "R-squared = 0.50", x = 23, y = -700) +
   facet_wrap(~Type_Flux)
 
 gg6 <- ggplot(data = Reco, aes(x = Annual_Preci, y = Res)) +
@@ -919,10 +761,10 @@ gg6 <- ggplot(data = Reco, aes(x = Annual_Preci, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Precipitation (mm)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.53", x = 3200, y = -700) +
+  annotate("text", label = "R-squared = 0.54", x = 3200, y = -700) +
   facet_wrap(~Type_Flux)
 
-# 5.4 Ratio GPP-Reco
+# 4.4 Ratio GPP-Reco
 levels(Ratio_GPP_Reco$Type_Flux) <- c("NEE", "GPP", "Respiration", "NEP", "mean_Uncert", "Ratio GPP-Reco", "Ratio NEP-GPP", "Ratio NEP-GPPmax")
 
 # Compute residual
@@ -940,7 +782,7 @@ gg7 <- ggplot(data = Ratio_GPP_Reco, aes(x = Tair, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Air temperature (°C)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.25", x = 23, y = -0.4) +
+  annotate("text", label = "R-squared = 0.27", x = 23, y = -0.4) +
   facet_wrap(~Type_Flux)
 
 gg8 <- ggplot(data = Ratio_GPP_Reco, aes(x = Annual_Preci, y = Res)) +
@@ -952,7 +794,7 @@ gg8 <- ggplot(data = Ratio_GPP_Reco, aes(x = Annual_Preci, y = Res)) +
   annotate("text", label = "R-squared = 0.09", x = 3200, y = -0.4) +
   facet_wrap(~Type_Flux)
 
-# 5.5 Ratio NEP-GPP
+# 4.5 Ratio NEP-GPP
 levels(Ratio_NEP_GPP$Type_Flux) <- c("NEE", "GPP", "Respiration", "NEP", "mean_Uncert", "Ratio GPP-Reco", "Ratio NEP-GPP", "Ratio NEP-GPPmax")
 
 # Compute residual
@@ -970,7 +812,7 @@ gg9 <- ggplot(data = Ratio_NEP_GPP, aes(x = Tair, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Air temperature (°C)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.27", x = 23, y = -0.55) +
+  annotate("text", label = "R-squared = 0.26", x = 23, y = -0.55) +
   facet_wrap(~Type_Flux)
 
 gg10 <- ggplot(data = Ratio_NEP_GPP, aes(x = Annual_Preci, y = Res)) +
@@ -979,10 +821,10 @@ gg10 <- ggplot(data = Ratio_NEP_GPP, aes(x = Annual_Preci, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Precipitation (mm)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.09", x = 3200, y = -0.55) +
+  annotate("text", label = "R-squared = 0.08", x = 3200, y = -0.55) +
   facet_wrap(~Type_Flux)
 
-# 5.6 Ratio NEP-GPPclimax
+# 4.6 Ratio NEP-GPPclimax
 
 # Compute residual
 Ratio_NEP_GPPmax$Res<- residuals(Fun_Ratio_NEP_GPPmax)
@@ -1000,7 +842,7 @@ gg11 <- ggplot(data = Ratio_NEP_GPPmax, aes(x = Tair, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Air temperature (°C)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.23", x = 23, y = -0.5)+ 
+  annotate("text", label = "R-squared = 0.20", x = 23, y = -0.5)+ 
   facet_wrap(~Type_Flux)
 
 gg12 <- ggplot(data = Ratio_NEP_GPPmax, aes(x = Annual_Preci, y = Res)) +
@@ -1009,10 +851,10 @@ gg12 <- ggplot(data = Ratio_NEP_GPPmax, aes(x = Annual_Preci, y = Res)) +
   theme_bw(base_size = 12, base_family = "Helvetica")+
   xlab("Precipitation (mm)")+
   ylab("Residual fitted model")+
-  annotate("text", label = "R-squared = 0.04", x = 3200, y = -0.5) +
+  annotate("text", label = "R-squared = 0.03", x = 3200, y = -0.5) +
   facet_wrap(~Type_Flux)
 
-# 5.7 Plot all graphs together
+# 4.7 Plot all graphs together
 pdf("Latex/Figures/Residual_Flux.eps", width = 17, height = 14) # Open a new pdf file
 grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, gg7, gg8, gg9, gg10, gg11, gg12, nrow=6) # Write the grid.arrange in the file
 dev.off() # Close the file
