@@ -56,19 +56,6 @@ Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "I
 colnames(Ratio_NEP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
                          "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
-#Compute ratio GPP/GPPmax
-GPP$GPP_GPPmax<- GPP$values/GPP$GPPmax
-Ratio_GPP_GPPmax<- GPP
-Ratio_GPP_GPPmax<-Ratio_GPP_GPPmax[, !(colnames(Ratio_GPP_GPPmax) %in% c("values", "Type_Flux", "GPPmat", "GPPmax", "GPPp", "NEP_GPPmax"))]
-Ratio_GPP_GPPmax<-gather(Ratio_GPP_GPPmax, variable, values, -Annual_Preci, -year, 
-                         -Ecosystem, -Climate, -Disturbance,
-                         -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                         -Tair, -Rg, -Study, -Lat, -Long)
-Ratio_GPP_GPPmax<- Ratio_GPP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "values", "Annual_Preci", 
-                                      "Tair","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
-colnames(Ratio_GPP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                              "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
-
 # Create dataset mean per site
 NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
                           summarise,
@@ -112,13 +99,6 @@ Ratio_NEP_GPPmax_Mean_Site<-ddply(Ratio_NEP_GPPmax, .(Site_ID, Type_Flux),
                                 Annual_Preci=mean(Annual_Preci, na.rm=T),
                                 Tair=mean(Tair, na.rm=T))
 
-Ratio_GPP_GPPmax_Mean_Site<-ddply(Ratio_GPP_GPPmax, .(Site_ID, Type_Flux),
-                                  summarise,
-                                  Stand_Age= median(Stand_Age, na.rm=T),
-                                  values=mean(values, na.rm=T),
-                                  Annual_Preci=mean(Annual_Preci, na.rm=T),
-                                  Tair=mean(Tair, na.rm=T))
-
 # 1.2 Test the best fitting function to ecosystem response - Modelling efficiency (Nash-Sutcliffe Efficiency test)
 
 # Load function 
@@ -128,24 +108,21 @@ source("Function/NSE_Reco.R")
 source("Function/NSE_Ratio_GPP_ER.R")
 source("Function/NSE_Ratio_NEP_GPP.R")
 source("Function/NSE_Ratio_NEP_GPPmax.R")
-source("Function/NSE_Ratio_GPP_GPPmax.R")
 
 # Create a list of dataframe
-df.list1<-list(GPP, GPP_Mean_Site)
-df.list2<-list(NEP, NEP_Mean_Site)
+df.list1<-list(NEP, NEP_Mean_Site)
+df.list2<-list(GPP, GPP_Mean_Site)
 df.list3<-list(Reco, Reco_Mean_Site)
 df.list4<-list(Ratio_GPP_Reco, Ratio_GPP_Reco_Mean_Site)
 df.list5<-list(Ratio_NEP_GPP, Ratio_NEP_GPP_Mean_Site)
 df.list6<-list(Ratio_NEP_GPPmax, Ratio_NEP_GPPmax_Mean_Site)
-df.list7<-list(Ratio_GPP_GPPmax, Ratio_GPP_GPPmax_Mean_Site)
 
-Out1<- lapply(df.list1, stat_GPP)
-Out2<- lapply(df.list2, stat_NEP)
+Out1<- lapply(df.list1, stat_NEP)
+Out2<- lapply(df.list2, stat_GPP)
 Out3<- lapply(df.list3, stat_Reco)
 Out4<- lapply(df.list4, stat_Ratio_GPP_ER)
 Out5<- lapply(df.list5, stat_Ratio_NEP_GPP)
 Out6<- lapply(df.list6, stat_Ratio_NEP_GPPmax)
-Out7<- lapply(df.list7, stat_Ratio_GPP_GPPmax)
 
 # 2. Plot ecosystem response with the best fit function with all years per site
 source("Function/CI_Est.R")
@@ -154,7 +131,7 @@ source("Function/CI_Est.R")
 
 # Compute the best fit function
 Fun_NEP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = NEP,
-               start = list(A= 2.379e+02, B= -3.295e-03, C=-7.879e+02, D=-1.519e-01), control = list(maxiter = 500))
+               start = list(A= 2.734e+02, B=-4.834e-03, C=-9.307e+02, D=-1.582e-01), control = list(maxiter = 500))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_NEP), interval = 'confidence', level = 0.95)
@@ -169,7 +146,6 @@ pred3 <- approx(NEP$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-NEP$Annual_Preci[NEP$Annual_Preci == 0] <- NA
 gg1<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(NEP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(NEP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
@@ -191,7 +167,7 @@ gg1<-ggplot(predVals, aes(x, lower, upper)) +
 
 # Compute the best fit function
 Fun_GPP<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = GPP, 
-               start = list(A=1287.1816, k= -0.1344), control = list(maxiter = 500))
+               start = list(A=1327.462, k=-0.134), control = list(maxiter = 500))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_GPP), interval = 'confidence', level = 0.95)
@@ -206,7 +182,6 @@ pred3 <- approx(GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-GPP$Annual_Preci[GPP$Annual_Preci == 0] <- NA
 gg2<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(GPP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(GPP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
@@ -231,7 +206,7 @@ gg2<-ggplot(predVals, aes(x, lower, upper)) +
 
 # Compute the best fit function
 Fun_Reco<-nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = Reco, 
-                start = list(A = 631.614933, B = 0.154252, k = -0.001269))
+                start = list(A = 407.499524, B =0.379616, k =-0.005368), control = list(maxiter = 500))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Reco), interval = 'confidence', level = 0.95)
@@ -246,7 +221,6 @@ pred3 <- approx(Reco$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Reco$Annual_Preci[Reco$Annual_Preci == 0] <- NA
 gg3<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(Reco, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Reco, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
@@ -271,7 +245,7 @@ gg3<-ggplot(predVals, aes(x, lower, upper)) +
 
 # Compute the best fit function
 Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco, 
-                         start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
+                          start = list(A= 1.1635, k= -0.2284), control = list(maxiter = 500))
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_GPP_Reco), interval = 'confidence', level = 0.95)
 
@@ -285,7 +259,6 @@ pred3 <- approx(Ratio_GPP_Reco$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Ratio_GPP_Reco$Annual_Preci[Ratio_GPP_Reco$Annual_Preci == 0] <- NA
 gg4<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_GPP_Reco, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
@@ -310,7 +283,7 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
 
 # Compute the best fit function
 Fun_Ratio_NEP_GPP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPP,
-                         start = list(A=0.165450, B= -0.003772, C=-1.319022, D=-0.148503), control = list(maxiter = 500))
+                         start = list(A=0.204818, B= -0.006599, C=-1.411068, D=-0.145227), control = list(maxiter = 500))
 
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPP), interval = 'confidence', level = 0.95)
@@ -325,7 +298,6 @@ pred3 <- approx(Ratio_NEP_GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Ratio_NEP_GPP$Annual_Preci[Ratio_NEP_GPP$Annual_Preci == 0] <- NA
 gg5<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
@@ -350,7 +322,7 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
 
 # Compute the best fit function
 Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax,
-                            start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
+                            start = list(A=-0.741553, B= -0.116557, C=0.236692, D=-0.006249), control = list(maxiter = 500))
 # Calculate the confidence interval
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
 
@@ -364,7 +336,6 @@ pred3 <- approx(Ratio_NEP_GPPmax$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Ratio_NEP_GPPmax$Annual_Preci[Ratio_NEP_GPPmax$Annual_Preci == 0] <- NA
 gg6<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPPmax, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
@@ -376,45 +347,6 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Ratio NEP-GPPclimax")+ 
   # ylim(0,3000)+
-  scale_size(range = c(4, 9)) +
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="none", 
-        legend.box="horizontal") +
-  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
-         size = guide_legend(title.position="top", title.hjust = 0.5))
-
-# 2.6 Ratio GPP/GPPclimax 
-
-# Compute the best fit function
-Fun_Ratio_GPP_GPPmax<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_GPPmax, 
-                            start = list(A= 0.6575, k= -0.1007), control = list(maxiter = 500))
-# Calculate the confidence interval
-predCI <- predict(as.lm.nls(Fun_Ratio_GPP_GPPmax), interval = 'confidence', level = 0.95)
-
-# Make the predictions on our defined x
-x <- seq(min(Ratio_GPP_GPPmax$Stand_Age),max(Ratio_GPP_GPPmax$Stand_Age),length=50)
-pred1 <- approx(Ratio_GPP_GPPmax$Stand_Age, predCI[, 1], xout = x) ## fitted values
-pred2 <- approx(Ratio_GPP_GPPmax$Stand_Age, predCI [, 2], xout = x) ## lower CI
-pred3 <- approx(Ratio_GPP_GPPmax$Stand_Age, predCI[, 3], xout = x) ## upper CI
-
-# Put this into a data frame
-predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
-
-# Plot using ggplot
-Ratio_GPP_GPPmax$Annual_Preci[Ratio_GPP_GPPmax$Annual_Preci == 0] <- NA
-gg7<-ggplot(predVals, aes(x, lower, upper)) +
-  geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
-  geom_point(data = subset(Ratio_GPP_GPPmax, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
-  geom_point(data = subset(Ratio_GPP_GPPmax, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
-  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
-  xlab("Stand age") + ylab("Ratio GPP-Reco")+ 
-  ylim(0,3)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
   theme(panel.grid.minor = element_line(colour="grey", size=0.5),
@@ -453,7 +385,6 @@ pred3 <- approx(NEP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-NEP_Mean_Site$Annual_Preci[NEP_Mean_Site$Annual_Preci == 0] <- NA
 gg1<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(NEP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(NEP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
@@ -493,8 +424,7 @@ pred3 <- approx(GPP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-GPP_Mean_Site$Annual_Preci[GPP_Mean_Site$Annual_Preci == 0] <- NA
-  gg2<-ggplot(predVals, aes(x, lower, upper)) +
+gg2<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(GPP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(GPP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
   geom_line(aes(y = fit), colour="black", size=0.8)+
@@ -533,7 +463,6 @@ pred3 <- approx(Reco_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Reco_Mean_Site$Annual_Preci[Reco_Mean_Site$Annual_Preci == 0] <- NA
 gg3<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(Reco_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Reco_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
@@ -573,7 +502,6 @@ pred3 <- approx(Ratio_GPP_Reco_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## up
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Ratio_GPP_Reco_Mean_Site$Annual_Preci[Ratio_GPP_Reco_Mean_Site$Annual_Preci == 0] <- NA
 gg4<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_GPP_Reco_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
@@ -613,7 +541,6 @@ pred3 <- approx(Ratio_NEP_GPP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upp
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Ratio_NEP_GPP_Mean_Site$Annual_Preci[Ratio_NEP_GPP_Mean_Site$Annual_Preci == 0] <- NA
 gg5<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
@@ -644,16 +571,15 @@ Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), 
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Ratio_GPP_GPPmax_Mean_Site$Stand_Age),max(Ratio_GPP_GPPmax_Mean_Site$Stand_Age),length=50)
-pred1 <- approx(Ratio_GPP_GPPmax_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
-pred2 <- approx(Ratio_GPP_GPPmax_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
-pred3 <- approx(Ratio_GPP_GPPmax_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+x <- seq(min(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),max(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),length=50)
+pred1 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
 
 # Put this into a data frame
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
 # Plot using ggplot
-Ratio_NEP_GPPmax_Mean_Site$Annual_Preci[Ratio_NEP_GPPmax_Mean_Site$Annual_Preci == 0] <- NA
 gg6<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPPmax_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
@@ -670,45 +596,6 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
   theme(panel.grid.minor = element_line(colour="grey", size=0.5),
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position="bottom", 
-        legend.box="horizontal") +
-  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
-         size = guide_legend(title.position="top", title.hjust = 0.5))
-
-# 3.7 Ratio GPP/GPPclimax 
-
-# Compute the best fit function
-Fun_Ratio_GPP_GPPmax_Mean_Site<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_GPPmax_Mean_Site, 
-                            start = list(A= 0.6575, k= -0.1007), control = list(maxiter = 500))
-# Calculate the confidence interval
-predCI <- predict(as.lm.nls(Fun_Ratio_GPP_GPPmax_Mean_Site), interval = 'confidence', level = 0.95)
-
-# Make the predictions on our defined x
-x <- seq(min(Ratio_GPP_GPPmax_Mean_Site$Stand_Age),max(Ratio_GPP_GPPmax_Mean_Site$Stand_Age),length=50)
-pred1 <- approx(Ratio_GPP_GPPmax_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
-pred2 <- approx(Ratio_GPP_GPPmax_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
-pred3 <- approx(Ratio_GPP_GPPmax_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
-
-# Put this into a data frame
-predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
-
-# Plot using ggplot
-Ratio_GPP_GPPmax_Mean_Site$Annual_Preci[Ratio_GPP_GPPmax_Mean_Site$Annual_Preci == 0] <- NA
-gg7<-ggplot(predVals, aes(x, lower, upper)) +
-  geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
-  geom_point(data = subset(Ratio_GPP_GPPmax_Mean_Site, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
-  geom_point(data = subset(Ratio_GPP_GPPmax_Mean_Site, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
-  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
-  xlab("Stand age") + ylab("Ratio GPP-Reco")+ 
-  ylim(0,3)+
-  scale_size(range = c(4, 9)) +
-  theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="none", 
         legend.box="horizontal") +
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
