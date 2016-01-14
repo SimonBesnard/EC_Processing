@@ -147,6 +147,12 @@ gg2<-ggplot(data = Cdyn1) +
   geom_line(aes(x = time, y = Csoil1, colour="Csoil1"))+
   geom_line(aes(x = time, y = Csoil2, colour="Csoil2"))+
   theme_bw(base_size = 12, base_family = "Helvetica")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="bottom", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   xlab("Stand Age (year)")+
   ylab("Carbon stock")+
   scale_colour_manual("",breaks = c("Ctot", "Cbio", "Csoil1", "Csoil2"),
