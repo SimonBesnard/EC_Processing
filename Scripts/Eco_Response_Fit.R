@@ -162,6 +162,7 @@ gg1<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
@@ -202,6 +203,7 @@ gg2<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
@@ -242,6 +244,7 @@ gg3<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+ 
@@ -283,6 +286,7 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
@@ -325,6 +329,7 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
@@ -364,6 +369,7 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
@@ -414,6 +420,7 @@ gg1<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
@@ -455,6 +462,7 @@ gg2<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
@@ -495,6 +503,7 @@ gg3<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
@@ -536,6 +545,7 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
@@ -576,6 +586,7 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
@@ -616,6 +627,7 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
         legend.key = element_blank(),
         legend.position="none", 
         legend.box="horizontal",
+        legend.text=element_text(size=12),
         axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
