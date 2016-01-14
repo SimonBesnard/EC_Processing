@@ -17,6 +17,7 @@ library (reshape)
 library (hydroGOF)
 library (minpack.lm)
 library (cvTools)
+library(grid)
 
 #1.Function fit choice for ecosystem response
 
@@ -137,7 +138,7 @@ Fun_NEP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = NEP,
 predCI <- predict(as.lm.nls(Fun_NEP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(NEP$Stand_Age),max(NEP$Stand_Age),length=50)
+x <- seq(min(NEP$Stand_Age),max(NEP$Stand_Age),length=1000)
 pred1 <- approx(NEP$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(NEP$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(NEP$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -149,18 +150,21 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg1<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(NEP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(NEP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000", na.value = "blue")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal")+
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
   facet_grid(Type_Flux~., scales="free_x")
 
 # 2.2 GPP
@@ -173,7 +177,7 @@ Fun_GPP<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = GPP,
 predCI <- predict(as.lm.nls(Fun_GPP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(GPP$Stand_Age),max(GPP$Stand_Age),length=50)
+x <- seq(min(GPP$Stand_Age),max(GPP$Stand_Age),length=1000)
 pred1 <- approx(GPP$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(GPP$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -185,19 +189,20 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg2<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(GPP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(GPP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,4000)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
   facet_grid(Type_Flux~., scales="free_x")
@@ -212,7 +217,7 @@ Fun_Reco<-nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = Reco,
 predCI <- predict(as.lm.nls(Fun_Reco), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Reco$Stand_Age),max(Reco$Stand_Age),length=50)
+x <- seq(min(Reco$Stand_Age),max(Reco$Stand_Age),length=1000)
 pred1 <- approx(Reco$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Reco$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Reco$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -224,22 +229,24 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg3<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(Reco, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Reco, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,4000)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
-         size = guide_legend(title.position="top", title.hjust = 0.5))+
+         size = guide_legend(title.position="top", title.hjust = 0.5))+ 
   facet_grid(Type_Flux~., scales="free_x")
+
 
 # 2.4 Ratio GPP/Reco
 
@@ -250,7 +257,7 @@ Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco,
 predCI <- predict(as.lm.nls(Fun_Ratio_GPP_Reco), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Ratio_GPP_Reco$Stand_Age),max(Ratio_GPP_Reco$Stand_Age),length=50)
+x <- seq(min(Ratio_GPP_Reco$Stand_Age),max(Ratio_GPP_Reco$Stand_Age),length=1000)
 pred1 <- approx(Ratio_GPP_Reco$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Ratio_GPP_Reco$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Ratio_GPP_Reco$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -263,19 +270,20 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_GPP_Reco, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Ratio_GPP_Reco, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Ratio GPP-Reco")+ 
   ylim(0,2)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
 
@@ -289,7 +297,7 @@ Fun_Ratio_NEP_GPP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), dat
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Ratio_NEP_GPP$Stand_Age),max(Ratio_NEP_GPP$Stand_Age),length=50)
+x <- seq(min(Ratio_NEP_GPP$Stand_Age),max(Ratio_NEP_GPP$Stand_Age),length=1000)
 pred1 <- approx(Ratio_NEP_GPP$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Ratio_NEP_GPP$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Ratio_NEP_GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -297,24 +305,27 @@ pred3 <- approx(Ratio_NEP_GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
 # Put this into a data frame
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 
+max(predVals$upper)
+
 # Plot using ggplot
 gg5<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Ratio_NEP_GPP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Ratio NEP-GPP")+ 
   ylim(-1.5,1)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
 
@@ -327,7 +338,7 @@ Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), 
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Ratio_NEP_GPPmax$Stand_Age),max(Ratio_NEP_GPPmax$Stand_Age),length=50)
+x <- seq(min(Ratio_NEP_GPPmax$Stand_Age),max(Ratio_NEP_GPPmax$Stand_Age),length=1000)
 pred1 <- approx(Ratio_NEP_GPPmax$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Ratio_NEP_GPPmax$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Ratio_NEP_GPPmax$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -340,27 +351,29 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPPmax, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Ratio_NEP_GPPmax, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Ratio NEP-GPPclimax")+ 
   # ylim(0,3000)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
 
 # 2.8. Plot all carbon fluxes plots together
 
 # Create an arrange plot object
+source("Function/Legend_Grid_Arrange.R")
 pdf("Latex/Figures/Annual_Flux_All_Years.eps", width = 15, height = 12) # Open a new pdf file
-grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, nrow=3) # Write the grid.arrange in the file
+grid_arrange_shared_legend(gg1, gg2, gg3, gg4, gg5, gg6, nrow=3) # Write the grid.arrange in the file
 dev.off() # Close the file
 
 # 3. Plot ecosystem response with the best fit function with the mean per site
@@ -376,7 +389,7 @@ Fun_NEP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = NEP_Me
 predCI <- predict(as.lm.nls(Fun_NEP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(NEP_Mean_Site$Stand_Age),max(NEP_Mean_Site$Stand_Age),length=50)
+x <- seq(min(NEP_Mean_Site$Stand_Age),max(NEP_Mean_Site$Stand_Age),length=1000)
 pred1 <- approx(NEP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(NEP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(NEP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -388,22 +401,24 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg1<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(NEP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(NEP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   # ylim(0,3000)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
   facet_grid(Type_Flux~., scales="free_x")
+
 
 # 3.2 GPP
 
@@ -415,7 +430,7 @@ Fun_GPP<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = GPP_Mean_Site,
 predCI <- predict(as.lm.nls(Fun_GPP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(GPP_Mean_Site$Stand_Age),max(GPP_Mean_Site$Stand_Age),length=50)
+x <- seq(min(GPP_Mean_Site$Stand_Age),max(GPP_Mean_Site$Stand_Age),length=1000)
 pred1 <- approx(GPP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(GPP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(GPP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -427,19 +442,20 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg2<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(GPP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(GPP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,4000)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
   facet_grid(Type_Flux~., scales="free_x")
@@ -454,7 +470,7 @@ Fun_Reco<-nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = Reco_Mean_Site
 predCI <- predict(as.lm.nls(Fun_Reco), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Reco_Mean_Site$Stand_Age),max(Reco_Mean_Site$Stand_Age),length=50)
+x <- seq(min(Reco_Mean_Site$Stand_Age),max(Reco_Mean_Site$Stand_Age),length=1000)
 pred1 <- approx(Reco_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Reco_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Reco_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -466,19 +482,20 @@ predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
 gg3<-ggplot(predVals, aes(x, lower, upper)) +
   geom_point(data = subset(Reco_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Reco_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Annual carbon flux (g.m-2.y-1)")+ 
   ylim(0,4000)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))+
   facet_grid(Type_Flux~., scales="free_x")
@@ -493,7 +510,7 @@ Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco_M
 predCI <- predict(as.lm.nls(Fun_Ratio_GPP_Reco), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Ratio_GPP_Reco_Mean_Site$Stand_Age),max(Ratio_GPP_Reco_Mean_Site$Stand_Age),length=50)
+x <- seq(min(Ratio_GPP_Reco_Mean_Site$Stand_Age),max(Ratio_GPP_Reco_Mean_Site$Stand_Age),length=1000)
 pred1 <- approx(Ratio_GPP_Reco_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Ratio_GPP_Reco_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Ratio_GPP_Reco_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -506,19 +523,20 @@ gg4<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_GPP_Reco_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Ratio_GPP_Reco_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Ratio GPP-Reco")+ 
   ylim(0,2)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
 
@@ -532,7 +550,7 @@ Fun_Ratio_NEP_GPP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), dat
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPP), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Ratio_NEP_GPP_Mean_Site$Stand_Age),max(Ratio_NEP_GPP$Stand_Age),length=50)
+x <- seq(min(Ratio_NEP_GPP_Mean_Site$Stand_Age),max(Ratio_NEP_GPP$Stand_Age),length=1000)
 pred1 <- approx(Ratio_NEP_GPP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Ratio_NEP_GPP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Ratio_NEP_GPP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -545,19 +563,20 @@ gg5<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Ratio_NEP_GPP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Ratio NEP-GPP")+ 
   ylim(-1.2,1)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
         legend.position="none", 
-        legend.box="horizontal") +
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
 
@@ -571,7 +590,7 @@ Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), 
 predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
 
 # Make the predictions on our defined x
-x <- seq(min(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),max(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),length=50)
+x <- seq(min(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),max(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),length=1000)
 pred1 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
 pred2 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
 pred3 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
@@ -584,26 +603,28 @@ gg6<-ggplot(predVals, aes(x, lower, upper)) +
   geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
   geom_point(data = subset(Ratio_NEP_GPPmax_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
   geom_point(data = subset(Ratio_NEP_GPPmax_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
-  geom_line(aes(y = fit), colour="black", size=0.8)+
-  geom_line(mapping = aes(y = upper), lty = "dashed", size=0.8) +
-  geom_line(mapping = aes(y = lower), lty = "dashed", size=0.8)+
-  scale_colour_gradient(low="#00FF33", high ="#FF0000")+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
   labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
   xlab("Stand age") + ylab("Ratio NEP-GPPclimax")+ 
   # ylim(0,3000)+
   scale_size(range = c(4, 9)) +
   theme_bw(base_size = 12, base_family = "Helvetica") + 
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
          size = guide_legend(title.position="top", title.hjust = 0.5))
 
 # 3.8.Plot all carbon fluxes plots together
 
 # Create an arrange plot object
+source("Function/Legend_Grid_Arrange.R")
 pdf("Latex/Figures/Annual_Flux_Mean_Site.eps", width = 15, height = 12) # Open a new pdf file
-grid.arrange(gg1, gg2, gg3, gg4, gg5, gg6, nrow=3) # Write the grid.arrange in the file
+grid_arrange_shared_legend(gg1, gg2, gg3, gg4, gg5, gg6, nrow=3) # Write the grid.arrange in the file
 dev.off() # Close the file
 
