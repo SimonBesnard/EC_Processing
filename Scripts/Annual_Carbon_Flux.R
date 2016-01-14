@@ -92,7 +92,7 @@ dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 #CA-NS1
 dfAll_Sites[c(62,63), "Annual_Preci"]<- 500
 
-#CA-NS1
+#CA-NS3
 dfAll_Sites[71, "Annual_Preci"]<- 502
 
 # CA-NS5
@@ -111,52 +111,49 @@ dfAll_Sites[143, "Annual_Preci"]<- 1036
 dfAll_Sites[c(145:147), "Annual_Preci"]<- 1036
 
 #CZ-Bk1
-dfAll_Sites[c(154:160), "Annual_Preci"]<- 1026
+dfAll_Sites[c(154:157, 159:160), "Annual_Preci"]<- 1026
 
 #FI-Sod
-dfAll_Sites[c(205: 207), "Annual_Preci"]<- 525
+dfAll_Sites[c(212: 213), "Annual_Preci"]<- 525
 
 #Il-Yat
-dfAll_Sites[c(237:238), "Annual_Preci"]<- 277
+dfAll_Sites[c(244:245), "Annual_Preci"]<- 277
 
 #It-Col
-dfAll_Sites[c(244:246), "Annual_Preci"]<- 971
+dfAll_Sites[c(251:253), "Annual_Preci"]<- 971
 
 #It-Lav
-dfAll_Sites[c(251:253), "Annual_Preci"]<- 757
+dfAll_Sites[c(259:260), "Annual_Preci"]<- 757
 
 #It-Sro
-dfAll_Sites[c(276, 278), "Annual_Preci"]<- 898
+dfAll_Sites[c(283, 285), "Annual_Preci"]<- 898
 
 #JP-Tak
-dfAll_Sites[c(284:289), "Annual_Preci"]<- 1024
+dfAll_Sites[c(291:296), "Annual_Preci"]<- 1024
 
 #Ru-Fyo
-dfAll_Sites[c(314:315), "Annual_Preci"]<- 671
+dfAll_Sites[c(321:322), "Annual_Preci"]<- 671
 
 #SE-Nor
-dfAll_Sites[c(332,336), "Annual_Preci"]<- 561
+dfAll_Sites[c(342,346), "Annual_Preci"]<- 561
 
 #SE-Sk1
-dfAll_Sites[339, "Annual_Preci"]<- 567
+dfAll_Sites[349, "Annual_Preci"]<- 567
 
 #SE-Sk2
-dfAll_Sites[c(340:341), "Annual_Preci"]<- 573
-
-#UK-Ham
-dfAll_Sites[354, "Annual_Preci"]<- 829
+dfAll_Sites[c(350:351), "Annual_Preci"]<- 573
 
 #US-Lph
-dfAll_Sites[404, "Annual_Preci"]<- 1071
+dfAll_Sites[417, "Annual_Preci"]<- 1071
 
 #US-Syv
-dfAll_Sites[439, "Annual_Preci"]<- 826
+dfAll_Sites[473, "Annual_Preci"]<- 826
 
 # Remove disturbed years
-# sites: AU-Tum (2003: insect outbreak), BE-Bra (2000: thinning), CA-Ca1 (1997: disturbance occured), CA-Ca2 (2000/2001: forest not planted yet), CA-NS4 (2002: disturbance occured), CA-NS6 (2001), 
-#CA-OJP (1999: disturbance occured), CA-SJ2 (2003\2004: outlier for GPP values), NL-Loo (2006: storm), SE-Nor (2005: thinning occured this year), UK-Gri (2006:Thinning)
-# US-fmf (2006: thinnning), US-Nc2 (2006: insect attack), US-SP1 (2005: storm), US-SP3 (2000: storm), US-Wcr (2002: insect attack)
-dfAll_Sites<-dfAll_Sites[-c(3, 13, 27, 36, 37, 74, 82, 107, 119, 138, 139, 306, 338, 352, 374, 413, 422, 430, 448),]
+# sites: AU-Tum (2003: insect outbreak), BE-Bra (2000: thinning), CA-Ca2 (2001: forest not planted yet), 
+#CA-SJ2 (2004: outlier for GPP values), NL-Loo (2006: storm), SE-Nor (2005: thinning occured this year), UK-Gri (2006:Thinning)
+# US-Nc2 (2006: insect attack), US-SO2 (2004: wildfire), US-SP1 (2005: storm), US-Wcr (2002: insect attack)
+dfAll_Sites<-dfAll_Sites[-c(3, 13, 37, 139, 313, 348, 362, 423, 438, 456, 482),]
 
 # Remove years missing in each flux site
 dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_Uncert),]
