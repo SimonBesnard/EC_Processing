@@ -4,7 +4,7 @@
 ###################################
 ## Load the necessary packages
 library(rgdal)
-library(dplyr)
+library(plyr)
 library(ggplot2)
 library(rworldmap)
 
