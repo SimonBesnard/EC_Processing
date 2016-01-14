@@ -10,6 +10,7 @@ library(scales)
 library (dplyr)
 library (plyr)
 library(tidyr)
+library(grid)
 
 #1. Model NEP dynamics using multiplicative model
 
@@ -49,18 +50,6 @@ Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "I
 colnames(Ratio_NEP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
                               "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
-#Compute ratio GPP/GPPmax
-GPP$GPP_GPPmax<- GPP$values/GPP$GPPmax
-Ratio_GPP_GPPmax<- GPP
-Ratio_GPP_GPPmax<-Ratio_GPP_GPPmax[, !(colnames(Ratio_GPP_GPPmax) %in% c("values", "Type_Flux", "GPPmat", "GPPmax", "GPPp", "NEP_GPPmax"))]
-Ratio_GPP_GPPmax<-gather(Ratio_GPP_GPPmax, variable, values, -Annual_Preci, -year, 
-                         -Ecosystem, -Climate, -Disturbance,
-                         -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                         -Tair, -Rg, -Study, -Lat, -Long)
-Ratio_GPP_GPPmax<- Ratio_GPP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "values", "Annual_Preci", 
-                                      "Tair","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
-colnames(Ratio_GPP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                              "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
 # 1.2 Create NEP model using different functions
 
@@ -74,70 +63,41 @@ GPPmax<-ddply(GPP, "Climate",
 # Compute df
 NEP_model<- as.data.frame(0:320)
 colnames(NEP_model)<- c("Age")
-NEP_model$Af<- 3006.2719
+NEP_model$Af<- 2956.9084
 NEP_model$Am<- 3382.6741
-NEP_model$Bsh<- 476.5835
-NEP_model$Cfa<- 1749.0000
-NEP_model$Cfb<- 1365.3356
-NEP_model$Cfc<- 1121.0621
-NEP_model$Csa<- 1326.5110
-NEP_model$Dfb<- 1175.6603
-NEP_model$Dfc<- 752.8496
+NEP_model$Bsh<- 480.4198
+NEP_model$Cfa<- 1498.7218
+NEP_model$Cfb<- 1356.5680
+NEP_model$Cfc<- 1083.7448
+NEP_model$Csa<- 1273.2122
+NEP_model$Dfb<- 1180.7800
+NEP_model$Dfc<- 744.1699
 NEP_model$Dwb<- 865.5914
 NEP_model<-gather(NEP_model, variable, values, -Age)
 colnames(NEP_model)<-c("Age", "Climate", "GPPmax")
 
 # 1.2.2 Compute NEP models
 
-# From NEP to GPPclimax ratio
-NEP_model$NEP<- (-0.673035335*(exp(-0.089879738*NEP_model$Age)) + 0.250875785*(exp(-0.005593567*NEP_model$Age)))*NEP_model$GPPmax
-cols <- c("Af"="#FF6600", "Am"="#FF0000", "Bsh"="#000099", "Cfa"="#FFCC00", "Cfb"="#FFFF66", "Cfc"="#66CC66", "Csa"="#CCFF66", "Dfb"="#CCFFFF", 
-          "Dfc"="#3366CC", "Dwb"="#99CCFF")
+# From NEP to GPP ratio
+cols <- c("Af"="#f46d43", "Am"="#d73027", "Bsh"="#000099", "Cfa"="#fdae61", "Cfb"="#fee090", "Cfc"="#abd9e9", "Csa"="#ffffbf", "Dfb"="#e0f3f8",
+          "Dfc"="#4575b4", "Dwb"="#74add1")
+NEP_model$NEP<- (0.19945826*(exp(-0.00517618*NEP_model$Age)) -1.51419788*(exp(-0.17645323*NEP_model$Age)))*NEP_model$GPPmax
 ggplot(data=NEP_model)+
   geom_line(aes(x=Age, y=NEP, colour=Climate))+
+  geom_point(data=NEP, aes(x=Stand_Age,y=values, group= NULL),  shape=20, color="black", size=2)+
   theme_bw(base_size = 16, base_family = "Helvetica")+
   xlab("Stand age (year)")+ ylab("NEP (g.m-2.y-1)")+
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
+  theme(axis.text.x = element_text(hjust = 1),
+        legend.key = element_blank(),
+        legend.position="right", 
+        legend.box="horizontal",
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
   scale_colour_manual("",breaks = c("Af", "Am", "Bsh", "Cfa", "Cfb", "Cfc", "Csa", "Dfb", "Dfc", "Dwb"),
                       values=cols, 
                       labels=c("Tropical rainforest", "Tropical Monsoon", "Hot steppe", "Humid sub-tropical", "Oceanic-warm summer",
-                               "Oceanic-cold summer", "Dry summer", "Warm summer continental-No dry season", "Continental subarctic", 
-                               "Warm summer continental"))
-
-# From NEP to GPP ratio
-NEP_model$NEP<- (0.165451439*(exp(-0.003771699*NEP_model$Age))-1.319022091*(exp(-0.148502307*NEP_model$Age)))*((1.1579471*(1-exp(-0.1310897*NEP_model$Age)))*NEP_model$GPPmax)
-ggplot(data=NEP_model)+
-  geom_line(aes(x=Age, y=NEP, colour=Climate))+
-  theme_bw(base_size = 12, base_family = "Helvetica")+
-  xlab("Stand age (year)")+ ylab("NEP (g.m-2.y-1)")+
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  scale_colour_manual("",breaks = c("Af", "Am", "Bsh", "Cfa", "Cfb", "Cfc", "Csa", "Dfb", "Dfc", "Dwb"),
-                      values=cols, 
-                      labels=c("Tropical rainforest", "Tropical Monsoon", "Hot steppe", "Humid sub-tropical", "Oceanic-warm summer",
-                               "Oceanic-cold summer", "Dry summer", "Warm summer continental-No dry season", "Continental subarctic", 
-                               "Warm summer continental"))
-
-# from GPP to ER ratio
-NEP_model$NEP<- ((1.1579471*(1-exp(-0.1310897*NEP_model$Age)))*NEP_model$GPPmax)-(((1.1579471*(1-exp(-0.1310897*NEP_model$Age)))*NEP_model$GPPmax)/(1.1579471*(1-exp(-0.1310897*NEP_model$Age))))
-ggplot(data=NEP_model)+
-  geom_line(aes(x=Age, y=NEP, colour=Climate))+
-  theme_bw(base_size = 12, base_family = "Helvetica")+
-  xlab("Stand age (year)")+ ylab("NEP (g.m-2.y-1)")+
-  theme(panel.grid.minor = element_line(colour="grey", size=0.5),
-        axis.text.x = element_text(hjust = 1),
-        legend.position="bottom", 
-        legend.box="horizontal")+
-  scale_colour_manual("",breaks = c("Af", "Am", "Bsh", "Cfa", "Cfb", "Cfc", "Csa", "Dfb", "Dfc", "Dwb"),
-                      values=cols, 
-                      labels=c("Tropical rainforest", "Tropical Monsoon", "Hot steppe", "Humid sub-tropical", "Oceanic-warm summer",
-                               "Oceanic-cold summer", "Dry summer", "Warm summer continental-No dry season", "Continental subarctic", 
-                               "Warm summer continental"))
+                               "Oceanic-cold summer", "Dry summer", "Warm summer continental-No DS", "Continental subarctic", 
+                               "Warm summer continental"))+
+  ylim(-700, 1000)
 
 #2. Compute C stocks and NEP dynamics using C pool model
 
@@ -196,7 +156,7 @@ gg2<-ggplot(data = Cdyn1) +
   geom_hline(yintercept=31386.67, colour="black", linetype="dotted")+
   geom_hline(yintercept=2853.334, colour="blue", linetype="dotted")+
   geom_hline(yintercept=17120, colour="brown", linetype="dotted")
-  
+
 pdf("Latex/Figures/NEP_Model.eps", width = 8.87, height = 5.48) # Open a new pdf file
 grid.arrange(gg1, gg2, nrow=2) # Write the grid.arrange in the file
 dev.off() # Close the file
