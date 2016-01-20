@@ -34,11 +34,9 @@ stat_Reco <- function(dat) {
   # list(Gamma, Second_Poly, Third_Poly, Amiro, Asympt)
   list(c(NSE(melt(Gamma)$value, dat$values, na.rm=TRUE), NSE(melt(Second_Poly)$value, dat$values, na.rm=TRUE), 
     NSE(melt(Third_Poly)$value, dat$values, na.rm=TRUE), NSE(melt(Amiro)$value, dat$values, na.rm=TRUE ), 
-    NSE(melt(Chen)$value, dat$values, na.rm=TRUE ), NSE(melt(Coursolle)$value, dat$values, na.rm=TRUE),
-    NSE(melt(Besnard)$value, dat$values, na.rm=TRUE)),
+    NSE(melt(Chen)$value, dat$values, na.rm=TRUE ), NSE(melt(Coursolle)$value, dat$values, na.rm=TRUE)),
   c(cor(melt(Gamma)$value, dat$values)^2, cor(melt(Second_Poly)$value, dat$values)^2, 
     cor(melt(Third_Poly)$value, dat$values)^2, cor(melt(Amiro)$value, dat$values)^2, 
-    cor(melt(Chen)$value, dat$values)^2, cor(melt(Coursolle)$value, dat$values)^2,
-    cor(melt(Besnard)$value, dat$values)^2))
+    cor(melt(Chen)$value, dat$values)^2, cor(melt(Coursolle)$value, dat$values)^2))
   
 }
