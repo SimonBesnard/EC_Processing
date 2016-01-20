@@ -3,12 +3,8 @@
 ## 15.05.2015
 ###################################
 ## Load the necessary packages
-library (ggplot2)
-library(scales)
 library (dplyr)
 library (plyr)
-library(gridExtra)
-library (bootstrap)
 library (nlstools)
 library(nls2)
 library (boot)
@@ -18,87 +14,24 @@ library (hydroGOF)
 library (minpack.lm)
 library (cvTools)
 library(grid)
+library(gridExtra)
 
 #1.Function fit choice for ecosystem response
 
 # Import dataframe
 dfAll_Sites<-readRDS("Output/df_Annual_Flux.rds")
-
-# 1.1. Subset dataframe for fitting process 
-
-#Subset data set
-Flux_High<-dfAll_Sites[dfAll_Sites$Study %in% c("Yes"),]
-NEP<- Flux_High[Flux_High$Type_Flux %in% c("NEP"),]
-GPP<- Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
-Reco<- Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
-Ratio_NEP_GPP<- Flux_High[Flux_High$Type_Flux %in% c("NEP_GPP"),]
-Ratio_GPP_Reco<- Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
-
-#Compute GPPmax based on the lieth model
-#Min model
-params <- c(GPP15= 1923, GPP1000=1827, a1=242, a2=0.049, k=-0.00025)
-GPP$GPPmat<-with(as.list(params), GPP15*((1+exp(a1-a2*15))/(1+exp(a1-a2*GPP$Tair))))
-GPP$GPPp<-with(as.list(params), GPP1000*((1-exp(-k*GPP$Annual_Preci))/(1-exp(-k*1000))))
-GPP<-transform(GPP, GPPmax = pmin(GPPmat, GPPp))
-#Multiplicative model
-# params <- c(a=-0.119, b=1.315, c=-0.000664)
-# GPP$GPPmat<-with(as.list(params), 1/(1+exp(a*GPP$Tair+b))) 
-# GPP$GPPp<-with(as.list(params),(1-exp(c*GPP$Annual_Preci)))
-# GPP<-transform(GPP, GPPmax = 3000*GPPmat*GPPp)
-GPP$NEP_GPPmax<- NEP$values/GPP$GPPmax
-Ratio_NEP_GPPmax<- GPP
-Ratio_NEP_GPPmax<-Ratio_NEP_GPPmax[, !(colnames(Ratio_NEP_GPPmax) %in% c("values", "Type_Flux", "GPPmat", "GPPmax", "GPPp"))]
-Ratio_NEP_GPPmax<-gather(Ratio_NEP_GPPmax, variable, values, -Annual_Preci, -year, 
-       -Ecosystem, -Climate, -Disturbance,
-       -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-       -Tair, -Rg, -Study, -Lat, -Long)
-Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "values", "Annual_Preci", 
-                             "Tair","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
-colnames(Ratio_NEP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                         "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
-
-# Create dataset mean per site
-NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
-                          summarise,
-                          Stand_Age= mean(Stand_Age, na.rm=T),
-                          values=mean(values, na.rm=T),
-                          Annual_Preci=mean(Annual_Preci, na.rm=T),
-                          Tair=mean(Tair, na.rm=T))
-
-GPP_Mean_Site<-ddply(GPP, .(Site_ID, Type_Flux),
-                     summarise,
-                     Stand_Age= mean(Stand_Age, na.rm=T),
-                     values=mean(values, na.rm=T),
-                     Annual_Preci=mean(Annual_Preci, na.rm=T),
-                     Tair=mean(Tair, na.rm=T))
-
-Reco_Mean_Site<-ddply(Reco, .(Site_ID, Type_Flux),
-                     summarise,
-                     Stand_Age= mean(Stand_Age, na.rm=T),
-                     values=mean(values, na.rm=T),
-                     Annual_Preci=mean(Annual_Preci, na.rm=T),
-                     Tair=mean(Tair, na.rm=T))
-
-Ratio_NEP_GPP_Mean_Site<-ddply(Ratio_NEP_GPP, .(Site_ID, Type_Flux),
-                     summarise,
-                     Stand_Age= mean(Stand_Age, na.rm=T),
-                     values=mean(values, na.rm=T),
-                     Annual_Preci=mean(Annual_Preci, na.rm=T),
-                     Tair=mean(Tair, na.rm=T))
-
-Ratio_GPP_Reco_Mean_Site<-ddply(Ratio_GPP_Reco, .(Site_ID, Type_Flux),
-                     summarise,
-                     Stand_Age= mean(Stand_Age, na.rm=T),
-                     values=mean(values, na.rm=T),
-                     Annual_Preci=mean(Annual_Preci, na.rm=T),
-                     Tair=mean(Tair, na.rm=T))
-
-Ratio_NEP_GPPmax_Mean_Site<-ddply(Ratio_NEP_GPPmax, .(Site_ID, Type_Flux),
-                                summarise,
-                                Stand_Age= median(Stand_Age, na.rm=T),
-                                values=mean(values, na.rm=T),
-                                Annual_Preci=mean(Annual_Preci, na.rm=T),
-                                Tair=mean(Tair, na.rm=T))
+NEP<-readRDS("Output/NEP.rds")
+NEP_Mean_Site<-readRDS("Output/NEP_Mean_Site.rds")
+GPP<-readRDS("Output/GPP.rds")
+GPP_Mean_Site<-readRDS("Output/GPP_Mean_Site.rds")
+Reco<-readRDS("Output/Reco.rds")
+Reco_Mean_Site<-readRDS("Output/Reco_Mean_Site.rds")
+Ratio_GPP_Reco<-readRDS("Output/Ratio_GPP_Reco.rds")
+Ratio_GPP_Reco_Mean_Site<-readRDS("Output/Ratio_GPP_Reco_Mean_Site.rds")
+Ratio_NEP_GPP<-readRDS("Output/Ratio_NEP_GPP.rds")
+Ratio_NEP_GPP_Mean_Site<- readRDS("Output/Ratio_NEP_GPP_Mean_Site.rds")
+Ratio_NEP_GPPmax<- readRDS("Output/Ratio_NEP_GPPmax.rds")
+Ratio_NEP_GPPmax_Mean_Site<- readRDS("Output/Ratio_NEP_GPPmax_Mean_Site.rds")
 
 # 1.2 Test the best fitting function to ecosystem response - Modelling efficiency (Nash-Sutcliffe Efficiency test)
 
@@ -118,6 +51,7 @@ df.list4<-list(Ratio_GPP_Reco, Ratio_GPP_Reco_Mean_Site)
 df.list5<-list(Ratio_NEP_GPP, Ratio_NEP_GPP_Mean_Site)
 df.list6<-list(Ratio_NEP_GPPmax, Ratio_NEP_GPPmax_Mean_Site)
 
+# Compute modelling efficiency
 Out1<- lapply(df.list1, stat_NEP)
 Out2<- lapply(df.list2, stat_GPP)
 Out3<- lapply(df.list3, stat_Reco)
@@ -308,8 +242,6 @@ pred3 <- approx(Ratio_NEP_GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
 
 # Put this into a data frame
 predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
-
-max(predVals$upper)
 
 # Plot using ggplot
 gg5<-ggplot(predVals, aes(x, lower, upper)) +
