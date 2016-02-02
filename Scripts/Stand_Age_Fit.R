@@ -1,0 +1,597 @@
+## Script to fit ecosystem carbon flux response with stand age
+## Author: Simon Besnard
+## 15.05.2015
+###################################
+## Load the necessary packages
+library (dplyr)
+library (plyr)
+library (nlstools)
+library(nls2)
+library (boot)
+library(tidyr)
+library (reshape)
+library (hydroGOF)
+library (minpack.lm)
+library (cvTools)
+library(grid)
+library(gridExtra)
+library (ggplot2)
+
+#1.Function fit choice for ecosystem response vs. stand age
+
+# Import dataframe
+dfAll_Sites<-readRDS("Output/df_Annual_Flux.rds")
+NEP<-readRDS("Output/NEP.rds")
+NEP_Mean_Site<-readRDS("Output/NEP_Mean_Site.rds")
+GPP<-readRDS("Output/GPP.rds")
+GPP_Mean_Site<-readRDS("Output/GPP_Mean_Site.rds")
+Reco<-readRDS("Output/Reco.rds")
+Reco_Mean_Site<-readRDS("Output/Reco_Mean_Site.rds")
+Ratio_GPP_Reco<-readRDS("Output/Ratio_GPP_Reco.rds")
+Ratio_GPP_Reco_Mean_Site<-readRDS("Output/Ratio_GPP_Reco_Mean_Site.rds")
+Ratio_NEP_GPP<-readRDS("Output/Ratio_NEP_GPP.rds")
+Ratio_NEP_GPP_Mean_Site<- readRDS("Output/Ratio_NEP_GPP_Mean_Site.rds")
+Ratio_NEP_GPPmax<- readRDS("Output/Ratio_NEP_GPPmax.rds")
+Ratio_NEP_GPPmax_Mean_Site<- readRDS("Output/Ratio_NEP_GPPmax_Mean_Site.rds")
+
+# 1.2 Test the best fitting function to ecosystem response - Modelling efficiency (Nash-Sutcliffe Efficiency test)
+
+# Load function 
+source("Function/NSE_NEP.R")
+source("Function/NSE_GPP.R")
+source("Function/NSE_Reco.R")
+source("Function/NSE_Ratio_GPP_ER.R")
+source("Function/NSE_Ratio_NEP_GPP.R")
+source("Function/NSE_Ratio_NEP_GPPmax.R")
+
+# Create a list of dataframe
+df.list1<-list(NEP, NEP_Mean_Site)
+df.list2<-list(GPP, GPP_Mean_Site)
+df.list3<-list(Reco, Reco_Mean_Site)
+df.list4<-list(Ratio_GPP_Reco, Ratio_GPP_Reco_Mean_Site)
+df.list5<-list(Ratio_NEP_GPP, Ratio_NEP_GPP_Mean_Site)
+df.list6<-list(Ratio_NEP_GPPmax, Ratio_NEP_GPPmax_Mean_Site)
+
+# Compute modelling efficiency
+Out1<- lapply(df.list1, stat_NEP)
+Out2<- lapply(df.list2, stat_GPP)
+Out3<- lapply(df.list3, stat_Reco)
+Out4<- lapply(df.list4, stat_Ratio_GPP_ER)
+Out5<- lapply(df.list5, stat_Ratio_NEP_GPP)
+Out6<- lapply(df.list6, stat_Ratio_NEP_GPPmax)
+
+# 2. Plot ecosystem response with stand age
+source("Function/CI_Est.R")
+
+# 2.1 NEP
+
+# Compute the best fit function
+Fun_NEP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = NEP,
+               start = list(A= 2.734e+02, B=-4.834e-03, C=-9.307e+02, D=-1.582e-01), control = list(maxiter = 500))
+
+# Get CI of bootstrap
+Boot_NEP<- nlsBoot(Fun_NEP, niter=100)
+Boot_NEP$bootCI
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_NEP), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(NEP$Stand_Age),max(NEP$Stand_Age),length=1000)
+pred1 <- approx(NEP$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(NEP$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(NEP$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg1<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_point(data = subset(NEP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(NEP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("NEP (gC.m-2.y-1)")+ 
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+# 2.2 GPP
+
+# Compute the best fit function
+Fun_GPP<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = GPP, 
+               start = list(A=1327.462, k=-0.134), control = list(maxiter = 500))
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_GPP), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(GPP$Stand_Age),max(GPP$Stand_Age),length=1000)
+pred1 <- approx(GPP$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(GPP$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg2<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_point(data = subset(GPP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(GPP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Annual carbon flux (gC.m-2.y-1)")+ 
+  ylim(0,4000)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~., scales="free_x")
+
+# 2.3 Reco
+
+# Compute the best fit function
+Fun_Reco<-nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = Reco, 
+                start = list(A = 407.499524, B =0.379616, k =-0.005368), control = list(maxiter = 500))
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Reco), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Reco$Stand_Age),max(Reco$Stand_Age),length=1000)
+pred1 <- approx(Reco$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Reco$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Reco$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg3<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_point(data = subset(Reco, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Reco, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Annual carbon flux (gC.m-2.y-1)")+ 
+  ylim(0,4000)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+ 
+  facet_grid(Type_Flux~., scales="free_x")
+
+
+# 2.4 Ratio GPP/Reco
+
+# Compute the best fit function
+Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco, 
+                          start = list(A= 1.1635, k= -0.2284), control = list(maxiter = 500))
+
+# Get CI of bootstrap
+Boot_GPP_ER<- nlsBoot(Fun_Ratio_GPP_Reco, niter=100)
+Boot_GPP_ER$bootCI
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Ratio_GPP_Reco), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Ratio_GPP_Reco$Stand_Age),max(Ratio_GPP_Reco$Stand_Age),length=1000)
+pred1 <- approx(Ratio_GPP_Reco$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Ratio_GPP_Reco$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Ratio_GPP_Reco$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg4<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
+  geom_point(data = subset(Ratio_GPP_Reco, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Ratio_GPP_Reco, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Ratio GPP-Reco")+ 
+  ylim(0,2)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+# 2.5 Ratio NEP/GPP
+
+# Compute the best fit function
+Fun_Ratio_NEP_GPP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPP,
+                           start = list(A=0.204818, B= -0.006599, C=-1.411068, D=-0.145227), control = list(maxiter = 500))
+# Get CI of bootstrap
+Boot_NEP_GPP<- nlsBoot(Fun_Ratio_NEP_GPP, niter=100)
+Boot_NEP_GPP$bootCI
+  
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPP), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Ratio_NEP_GPP$Stand_Age),max(Ratio_NEP_GPP$Stand_Age),length=1000)
+pred1 <- approx(Ratio_NEP_GPP$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Ratio_NEP_GPP$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Ratio_NEP_GPP$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg5<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
+  geom_point(data = subset(Ratio_NEP_GPP, !is.na(Annual_Preci)), aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Ratio_NEP_GPP, is.na(Annual_Preci)), aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Ratio NEP-GPP")+ 
+  ylim(-1.5,1)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+# 2.6 Ratio NEP/GPPclimax 
+
+# Compute the best fit function
+Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax,
+                            start = list(A=-0.741553, B= -0.116557, C=0.236692, D=-0.006249), control = list(maxiter = 500))
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Ratio_NEP_GPPmax$Stand_Age),max(Ratio_NEP_GPPmax$Stand_Age),length=1000)
+pred1 <- approx(Ratio_NEP_GPPmax$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Ratio_NEP_GPPmax$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Ratio_NEP_GPPmax$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg6<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
+  geom_point(data = subset(Ratio_NEP_GPPmax, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Ratio_NEP_GPPmax, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Ratio NEP-GPPclimax")+ 
+  # ylim(0,3000)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+# 2.8. Plot all carbon fluxes plots together
+
+# Create an arrange plot object
+source("Function/Legend_Grid_Arrange.R")
+pdf("Latex/Figures/Annual_Flux_All_Years.eps", width = 10, height = 10) # Open a new pdf file
+grid_arrange_shared_legend(gg1, gg4, gg5, nrow=4) # Write the grid.arrange in the file
+dev.off() # Close the file
+
+# 3. Plot ecosystem response with the best fit function with the mean per site
+source("Function/CI_Est.R")
+
+# 3.1 NEP
+
+# Compute the best fit function
+Fun_NEP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = NEP_Mean_Site,
+               start = list(A= 2.379e+02, B= -3.295e-03, C=-7.879e+02, D=-1.519e-01), control = list(maxiter = 500))
+
+# Get CI of bootstrap
+Boot_NEP_Mean_Site<- nlsBoot(Fun_NEP, niter=100)
+Boot_NEP_Mean_Site$bootCI
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_NEP), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(NEP_Mean_Site$Stand_Age),max(NEP_Mean_Site$Stand_Age),length=1000)
+pred1 <- approx(NEP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(NEP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(NEP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg1<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_point(data = subset(NEP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(NEP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("NEP (gC.m-2.y-1)")+ 
+  # ylim(0,3000)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+
+# 3.2 GPP
+
+# Compute the best fit function
+Fun_GPP<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = GPP_Mean_Site, 
+              start = list(A=1287.1816, k= -0.1344), control = list(maxiter = 500))
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_GPP), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(GPP_Mean_Site$Stand_Age),max(GPP_Mean_Site$Stand_Age),length=1000)
+pred1 <- approx(GPP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(GPP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(GPP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg2<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_point(data = subset(GPP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(GPP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Annual carbon flux (gC.m-2.y-1)")+ 
+  ylim(0,4000)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~., scales="free_x")
+
+# 3.3 Reco Harvest
+
+# Compute the best fit function
+Fun_Reco<-nlsLM(values~A*(Stand_Age^B)*(exp(k*Stand_Age)), data = Reco_Mean_Site, 
+                start = list(A = 631.614933, B = 0.154252, k = -0.001269))
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Reco), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Reco_Mean_Site$Stand_Age),max(Reco_Mean_Site$Stand_Age),length=1000)
+pred1 <- approx(Reco_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Reco_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Reco_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg3<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_point(data = subset(Reco_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Reco_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Annual carbon flux (gC.m-2.y-1)")+ 
+  ylim(0,4000)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))+
+  facet_grid(Type_Flux~., scales="free_x")
+
+# 3.4 Ratio GPP/Reco
+
+# Compute the best fit function
+Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco_Mean_Site, 
+                          start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
+
+# Get CI of bootstrap
+Boot_GPP_ER_Mean_Site<- nlsBoot(Fun_Ratio_GPP_Reco, niter=100)
+Boot_GPP_ER_Mean_Site$bootCI
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Ratio_GPP_Reco), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Ratio_GPP_Reco_Mean_Site$Stand_Age),max(Ratio_GPP_Reco_Mean_Site$Stand_Age),length=1000)
+pred1 <- approx(Ratio_GPP_Reco_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Ratio_GPP_Reco_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Ratio_GPP_Reco_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg4<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_hline(yintercept=1, colour='grey', lty="dashed", size=0.8)+
+  geom_point(data = subset(Ratio_GPP_Reco_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Ratio_GPP_Reco_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Ratio GPP-Reco")+ 
+  ylim(0,2)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+# 3.5 Ratio NEP/GPP
+
+# Compute the best fit function
+Fun_Ratio_NEP_GPP<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPP_Mean_Site,
+                         start = list(A=0.165450, B= -0.003772, C=-1.319022, D=-0.148503), control = list(maxiter = 500))
+
+# Get CI of bootstrap
+Boot_NEP_GPP_Mean_Site<- nlsBoot(Fun_Ratio_NEP_GPP, niter=50)
+Boot_NEP_GPP_Mean_Site$bootCI
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPP), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Ratio_NEP_GPP_Mean_Site$Stand_Age),max(Ratio_NEP_GPP$Stand_Age),length=1000)
+pred1 <- approx(Ratio_NEP_GPP_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Ratio_NEP_GPP_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Ratio_NEP_GPP_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg5<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
+  geom_point(data = subset(Ratio_NEP_GPP_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Ratio_NEP_GPP_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Ratio NEP-GPP")+ 
+  ylim(-1.2,1)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+# 3.6 Ratio NEP/GPPclimax 
+
+# Compute the best fit function
+Fun_Ratio_NEP_GPPmax<-nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data = Ratio_NEP_GPPmax_Mean_Site,
+                            start = list(A=-0.776705, B= -0.161076, C=0.189838, D=-0.002193), control = list(maxiter = 500))
+
+# Calculate the confidence interval
+predCI <- predict(as.lm.nls(Fun_Ratio_NEP_GPPmax), interval = 'confidence', level = 0.95)
+
+# Make the predictions on our defined x
+x <- seq(min(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),max(Ratio_NEP_GPPmax_Mean_Site$Stand_Age),length=1000)
+pred1 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI[, 1], xout = x) ## fitted values
+pred2 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI [, 2], xout = x) ## lower CI
+pred3 <- approx(Ratio_NEP_GPPmax_Mean_Site$Stand_Age, predCI[, 3], xout = x) ## upper CI
+
+# Put this into a data frame
+predVals <- data.frame(x=x, fit=pred1$y,lower=pred2$y,upper=pred3$y)
+
+# Plot using ggplot
+gg6<-ggplot(predVals, aes(x, lower, upper)) +
+  geom_hline(yintercept=0, colour='grey', lty="dashed", size=0.8)+
+  geom_point(data = subset(Ratio_NEP_GPPmax_Mean_Site, !is.na(Annual_Preci)),  aes(x = Stand_Age, y = values, size=Annual_Preci, colour=Tair), inherit.aes = FALSE)+
+  geom_point(data = subset(Ratio_NEP_GPPmax_Mean_Site, is.na(Annual_Preci)),  aes(x = Stand_Age, y = values), colour='grey50', inherit.aes = FALSE)+
+  geom_line(aes(y = fit), colour="#666666", size=0.8)+
+  geom_line(mapping = aes(y = upper), colour="#666666", lty = "dashed", size=0.8) +
+  geom_line(mapping = aes(y = lower), colour="#666666", lty = "dashed", size=0.8)+
+  scale_colour_gradient(low="#ffffcc", high ="#b10026", space="Lab")+
+  labs(colour="Annual air temperature (°C)", size="Annual precipitation (mm.y-1)")+
+  xlab("Stand age") + ylab("Ratio NEP-GPPclimax")+ 
+  # ylim(0,3000)+
+  scale_size(range = c(4, 9)) +
+  theme_bw(base_size = 12, base_family = "Helvetica") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key = element_blank(),
+        legend.position="none", 
+        legend.box="horizontal",
+        legend.text=element_text(size=12),
+        axis.ticks.length=unit(-0.25, "cm"), axis.ticks.margin=unit(0.5, "cm"))+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5))
+
+# 3.8.Plot all carbon fluxes plots together
+
+# Create an arrange plot object
+source("Function/Legend_Grid_Arrange.R")
+pdf("Latex/Figures/Annual_Flux_Mean_Site.eps", width = 10, height = 10) # Open a new pdf file
+grid_arrange_shared_legend(gg1, gg4, gg5, nrow=3) # Write the grid.arrange in the file
+dev.off() # Close the file
+
