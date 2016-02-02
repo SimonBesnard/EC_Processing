@@ -1,4 +1,4 @@
-stat_NEP_GPP_Temp <- function(dat) {
+stat_Temp_NEP_GPP <- function(dat) {
   id<-unique(dat$Site_ID)
   Lieth_Temp<-c()
   Second_Poly<-c()

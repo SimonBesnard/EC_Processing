@@ -1,4 +1,4 @@
-stat_NEP_GPP_P <- function(dat) {
+stat_P_NEP_GPP <- function(dat) {
   id<-unique(dat$Site_ID)
   Lieth_P<-c()
   Second_Poly<-c()

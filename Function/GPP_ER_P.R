@@ -1,4 +1,4 @@
-stat_GPP_ER_P <- function(dat) {
+stat_P_GPP_ER <- function(dat) {
   id<-unique(dat$Site_ID)
   Lieth_P<-c()
   Second_Poly<-c()

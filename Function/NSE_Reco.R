@@ -26,9 +26,6 @@ stat_Reco <- function(dat) {
     fit6 <- try(nlsLM(values~A*(exp(B*Stand_Age)) + C*(exp(D*Stand_Age)), data =  dat[dat$Site_ID != i,],
                       start = list(A=1.208e+03, B= -5.859e-04, C=-6.353e+02, D=-8.481e-02), control = list(maxiter = 500)), silent=TRUE); 
     Coursolle[[i]]<- if (inherits(fit6, "nls")) sim = predict(fit6, newdata=dat[dat$Site_ID == i,]) else NA;
-    fit7<-try(nlsLM(values~A+B*Stand_Age^(C)*exp(D*Stand_Age)+E/(1+exp(-Stand_Age*H)), data =   dat[dat$Site_ID != i,], 
-                start = list(A = 1.314e+01, B =  4.670e-18, C = 2.588e+00, D=1.038e-01, E=1.126e+03, H= 1.474e-01), control = list(maxiter = 500)), silent=TRUE);
-    Besnard[[i]]<- if (inherits(fit7, "nls")) sim = predict(fit7, newdata=dat[dat$Site_ID == i,]) else NA;
     
   }
   # list(Gamma, Second_Poly, Third_Poly, Amiro, Asympt)
