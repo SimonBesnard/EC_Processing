@@ -213,32 +213,9 @@ SPEI_Site_df$SPEI_RS <- as.numeric(SPEI_Site_df$SPEI_RS)
 # 4.4 Include SPEI data into flux dataframe
 dfAll_Sites<- merge(dfAll_Sites, SPEI_Site_df, by=c("Site_ID", "year"), all.x=TRUE) 
 
-# 5. Compute SPEI index from CRU dataset
+# 5. Compute SPI index from CRU dataset
 
-# 5.1. Import PET data from CRU
-dir <- file.path(path, 'CRU/PET')
-list <- list.files(dir, pattern=glob2rx('*.txt'), full.names=TRUE)
-PET_Site <- list()
-for(i in seq_along(list)) {
-  PET_Site[[i]] = read.table(list[i], header=T,  check.names=FALSE, sep=",")
-  PET_Site[[i]]<- PET_Site[[i]][-c(2), ]
-  PET_Site[[i]] = read.table(list[i], header=T,  check.names=FALSE, sep=",")
-  PET_Site[[i]]<- PET_Site[[i]][-c(2),]
-  paste(names(PET_Site[[i]]), PET_Site[[i]][1,])
-  names(PET_Site[[i]]) <- paste(names(PET_Site[[i]]), PET_Site[[i]][1,])
-  PET_Site[[i]] <- tail(PET_Site[[i]], -1)
-  PET_Site[[i]]<- PET_Site[[i]] %>% gather(date, value, -`year 72`)
-  PET_Site[[i]]<- PET_Site[[i]] %>% separate(date, c("year", "month"))
-  colnames(PET_Site[[i]])<- c("ID", "year", "month", "PET")
-  PET_Site[[i]]$ID <- as.character(PET_Site[[i]]$ID)
-  PET_Site[[i]]$ID <- sapply(PET_Site[[i]]$ID, function(id) as.numeric(strsplit(id,"[.]")[[1]][2]))
-  PET_Site[[i]] <- PET_Site[[i]][with(PET_Site[[i]], order(ID)),]
-  PET_Site[[i]][,"PET"] [PET_Site[[i]][,"PET"] == -9999.0] <- NA
-}
-
-PET_Site<- do.call("rbind", PET_Site)
-
-# 5.2 Import precipitation data from CRU
+# 5.1 Import precipitation data from CRU
 dir <- file.path(path, 'CRU/Precipitation')
 list <- list.files(dir, pattern=glob2rx('*.txt'), full.names=TRUE)
 MAP_Site <- list()
@@ -256,36 +233,79 @@ for(i in seq_along(list)) {
   MAP_Site[[i]] <- MAP_Site[[i]][with(MAP_Site[[i]], order(ID)),]
 }
 
-MAP_Site<- do.call("rbind", MAP_Site)
+# 5.2 Compute SPI from CRU
 
-# 5.3 Compute SPEI from CRU
-
-# Compute SPEI
-SPEI_Site_df<- cbind(MAP_Site, PET_Site$PET)
-colnames(SPEI_Site_df)<- c("ID", "year", "month", "MAP", "PET")
-for(id in unique(SPEI_Site_df$ID)){
-SPEI_Site<- spei(SPEI_Site_df$MAP-SPEI_Site_df$PET, 6, na.rm=T)
-SPEI_Site_df$SPEI_CRU<- SPEI_Site$fitted
+# Compute SPI
+SPI_Site_df<- do.call("rbind", MAP_Site)
+colnames(SPI_Site_df)<- c("ID", "year", "month", "MAP")
+for(id in unique(SPI_Site_df$ID)){
+SPI_Site<- spi(SPI_Site_df$MAP, 6, na.rm=T)
+SPI_Site_df$SPI_CRU<- SPI_Site$fitted
 }
 
-# Average SPEI per year
-SPEI_Site_df<- ddply(SPEI_Site_df, .(ID, year),
+# Average SPI per year
+SPI_Site_df<- ddply(SPI_Site_df, .(ID, year),
                       summarize,
-                      SPEI_CRU= mean(SPEI_CRU, na.rm=T))
+                      SPI_CRU= mean(SPI_CRU, na.rm=T))
 
 # Add Site ID to dataset
 dir <- file.path(path, 'GPP_Extraction')
 list <- list.files(dir, pattern=glob2rx('*.csv'), full.names=TRUE)
 Site_ID<- read.csv(list, header=T,  check.names=FALSE, sep=",")
-SPEI_Site_df<- merge(SPEI_Site_df, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
-SPEI_Site_df<- SPEI_Site_df[c("Site_ID", "year", "SPEI_CRU")]
+SPI_Site_df<- merge(SPI_Site_df, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
+SPI_Site_df<- SPI_Site_df[c("Site_ID", "year", "SPI_CRU")]
 
-# 5.4 Include SPEI from CRU into flux dataset
-dfAll_Sites<- merge(dfAll_Sites, SPEI_Site_df, by=c("Site_ID", "year"), all.x=TRUE) 
+# 5.4 Include SPI from CRU into flux dataset
+dfAll_Sites<- merge(dfAll_Sites, SPI_Site_df, by=c("Site_ID", "year"), all.x=TRUE)
 
-# 5. Create dataframe for post-processing
+# 6. Compute temperature anomalies from CRU data
 
-# 5.1 Subset original data set into fluxes
+# 6.1 Import precipitation data from CRU
+dir <- file.path(path, 'CRU/Mean_Temp')
+list <- list.files(dir, pattern=glob2rx('*.txt'), full.names=TRUE)
+MAT_Site <- list()
+for(i in seq_along(list)) {
+  MAT_Site[[i]] = read.table(list[i], header=T,  check.names=FALSE, sep=",")
+  MAT_Site[[i]]<- MAT_Site[[i]][-c(2),]
+  paste(names(MAT_Site[[i]]), MAT_Site[[i]][1,])
+  names(MAT_Site[[i]]) <- paste(names(MAT_Site[[i]]), MAT_Site[[i]][1,])
+  MAT_Site[[i]] <- tail(MAT_Site[[i]], -1)
+  MAT_Site[[i]]<- MAT_Site[[i]] %>% gather(date, value, -`year 72`)
+  MAT_Site[[i]]<- MAT_Site[[i]] %>% separate(date, c("year", "month"))
+  colnames(MAT_Site[[i]])<- c("ID", "year", "month", "MAT")
+  MAT_Site[[i]]$ID <- as.character(MAT_Site[[i]]$ID)
+  MAT_Site[[i]]$ID <- sapply(MAT_Site[[i]]$ID, function(id) as.numeric(strsplit(id,"[.]")[[1]][2]))
+  MAT_Site[[i]] <- MAT_Site[[i]][with(MAT_Site[[i]], order(ID)),]
+}
+
+# Compute average temperature per site since 1900
+Mean_MAT_Site<- ddply(do.call("rbind", MAT_Site), .(ID),
+                    summarize,
+                    MAT_Mean= mean(MAT, na.rm=T))
+
+# Add Site ID
+Mean_MAT_Site$Site_ID<- Site_ID$Site_ID
+
+# Add average temperature per site since 1900 in flux dataframe
+dfAll_Sites<- merge(dfAll_Sites, Mean_MAT_Site, by=c("Site_ID"), all.x=TRUE)
+
+# Compute average temperature per site per year
+MAT_CRU_Site<- ddply(do.call("rbind", MAT_Site), .(ID, year),
+                      summarize,
+                      MAT_CRU= mean(MAT, na.rm=T))
+
+MAT_CRU_Site<- merge(MAT_CRU_Site, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
+MAT_CRU_Site<- MAT_CRU_Site[c("Site_ID", "year", "MAT_CRU")]
+
+# Add average temperature per site per yeat in flux dataframe
+dfAll_Sites<- merge(dfAll_Sites, MAT_CRU_Site, by=c("Site_ID", "year"), all.x=TRUE)
+
+# Compute temperature anomalies
+dfAll_Sites$MAT_An<- dfAll_Sites$MAT_CRU - dfAll_Sites$MAT_Mean
+
+# 7. Create dataframe for post-processing
+
+# 7.1 Subset original data set into fluxes
 Flux_High<-dfAll_Sites[dfAll_Sites$Study %in% c("Yes"),]
 NEP<- Flux_High[Flux_High$Type_Flux %in% c("NEP"),]
 GPP<- Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
@@ -293,69 +313,87 @@ Reco<- Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
 Ratio_NEP_GPP<- Flux_High[Flux_High$Type_Flux %in% c("NEP_GPP"),]
 Ratio_GPP_Reco<- Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
 
-#5.2 Compute GPPclimax based on the lieth model
+#7.2 Compute GPPclimax based on the lieth model
 params <- c(GPP15= 1923, GPP1000=1827, a1=242, a2=0.049, k=-0.00025)
 GPP$GPPmat<-with(as.list(params), GPP15*((1+exp(a1-a2*15))/(1+exp(a1-a2*GPP$Tair))))
 GPP$GPPp<-with(as.list(params), GPP1000*((1-exp(-k*GPP$Annual_Preci))/(1-exp(-k*1000))))
 GPP<-transform(GPP, GPPmax = pmin(GPPmat, GPPp))
 
-# 5.3 Compute ratio NEP-GPPclimx ratio
+# 7.3 Compute ratio NEP-GPPclimax ratio
 GPP$NEP_GPPmax<- NEP$values/GPP$GPPmax
 Ratio_NEP_GPPmax<- GPP
 Ratio_NEP_GPPmax<-Ratio_NEP_GPPmax[, !(colnames(Ratio_NEP_GPPmax) %in% c("values", "Type_Flux", "GPPmat", "GPPmax", "GPPp"))]
 Ratio_NEP_GPPmax<-gather(Ratio_NEP_GPPmax, variable, values, -Annual_Preci, -year, 
                          -Ecosystem, -Climate, -Disturbance,
                          -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                         -Tair, -Rg, -Study, -Lat, -Long)
+                         -Tair, -Rg, -Study, -Lat, -Long, -SPI_CRU, -SPEI_RS, -MAT_An)
 Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "values", "Annual_Preci", 
-                                      "Tair","Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
+                                      "Tair","Rg", "Stand_Age", "SPI_CRU", "SPEI_RS", "MAT_An", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
 colnames(Ratio_NEP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                              "Tair", "Rg", "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
+                              "Tair", "Rg", "Stand_Age", "SPI_CRU", "SPEI_RS", "MAT_An", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
-# 5.4 Create average site dataframe
+# 7.4 Create average site dataframe
 NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
                      summarise,
                      Stand_Age= mean(Stand_Age, na.rm=T),
                      values=mean(values, na.rm=T),
                      Annual_Preci=mean(Annual_Preci, na.rm=T),
-                     Tair=mean(Tair, na.rm=T))
+                     Tair=mean(Tair, na.rm=T), 
+                     SPI_CRU=mean(SPI_CRU, na.rm=T),
+                     SPEI_RS=mean(SPEI_RS, na.rm=T),
+                     MAT_An=mean(MAT_An, na.rm=T))
 
 GPP_Mean_Site<-ddply(GPP, .(Site_ID, Type_Flux),
                      summarise,
                      Stand_Age= mean(Stand_Age, na.rm=T),
                      values=mean(values, na.rm=T),
                      Annual_Preci=mean(Annual_Preci, na.rm=T),
-                     Tair=mean(Tair, na.rm=T))
+                     Tair=mean(Tair, na.rm=T), 
+                     SPI_CRU=mean(SPI_CRU, na.rm=T),
+                     SPEI_RS=mean(SPEI_RS, na.rm=T),
+                     MAT_An=mean(MAT_An, na.rm=T))
 
 Reco_Mean_Site<-ddply(Reco, .(Site_ID, Type_Flux),
                       summarise,
                       Stand_Age= mean(Stand_Age, na.rm=T),
                       values=mean(values, na.rm=T),
                       Annual_Preci=mean(Annual_Preci, na.rm=T),
-                      Tair=mean(Tair, na.rm=T))
+                      Tair=mean(Tair, na.rm=T), 
+                      SPI_CRU=mean(SPI_CRU, na.rm=T),
+                      SPEI_RS=mean(SPEI_RS, na.rm=T),
+                      MAT_An=mean(MAT_An, na.rm=T))
 
 Ratio_NEP_GPP_Mean_Site<-ddply(Ratio_NEP_GPP, .(Site_ID, Type_Flux),
                                summarise,
                                Stand_Age= mean(Stand_Age, na.rm=T),
                                values=mean(values, na.rm=T),
                                Annual_Preci=mean(Annual_Preci, na.rm=T),
-                               Tair=mean(Tair, na.rm=T))
+                               Tair=mean(Tair, na.rm=T), 
+                               SPI_CRU=mean(SPI_CRU, na.rm=T),
+                               SPEI_RS=mean(SPEI_RS, na.rm=T),
+                               MAT_An=mean(MAT_An, na.rm=T))
 
 Ratio_GPP_Reco_Mean_Site<-ddply(Ratio_GPP_Reco, .(Site_ID, Type_Flux),
                                 summarise,
                                 Stand_Age= mean(Stand_Age, na.rm=T),
                                 values=mean(values, na.rm=T),
                                 Annual_Preci=mean(Annual_Preci, na.rm=T),
-                                Tair=mean(Tair, na.rm=T))
+                                Tair=mean(Tair, na.rm=T), 
+                                SPI_CRU=mean(SPI_CRU, na.rm=T),
+                                SPEI_RS=mean(SPEI_RS, na.rm=T),
+                                MAT_An=mean(MAT_An, na.rm=T))
 
 Ratio_NEP_GPPmax_Mean_Site<-ddply(Ratio_NEP_GPPmax, .(Site_ID, Type_Flux),
                                   summarise,
                                   Stand_Age= median(Stand_Age, na.rm=T),
                                   values=mean(values, na.rm=T),
                                   Annual_Preci=mean(Annual_Preci, na.rm=T),
-                                  Tair=mean(Tair, na.rm=T))
+                                  Tair=mean(Tair, na.rm=T), 
+                                  SPI_CRU=mean(SPI_CRU, na.rm=T),
+                                  SPEI_RS=mean(SPEI_RS, na.rm=T),
+                                  MAT_An=mean(MAT_An, na.rm=T))
 
-# 5.5 Save all dataframe in a rds files
+# 7.5 Save all dataframe in a rds files
 saveRDS(dfAll_Sites, file="Output/df_Annual_Flux.rds")
 saveRDS(NEP, file="Output/NEP.rds")
 saveRDS(NEP_Mean_Site, file="Output/NEP_Mean_Site.rds")
