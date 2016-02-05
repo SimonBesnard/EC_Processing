@@ -327,7 +327,7 @@ Soil_1km_Data_Site <- data.frame(coordinates(Site.xy),
                    extract(Soil_1km_Raster, Site.xy))
 
 # Compute CEC total
-wt<-c(0.05,0.10,0.15,0.3,0.4,1)
+wt<-c(0.05, 0.10, 0.15, 0.3, 0.4, 1)
 Soil_1km_Data_Site$CEC_Total_1km<-apply(Soil_1km_Data_Site[,-c(1:3)],1,weighted.mean,w=wt)
 Soil_1km_Data_Site<- Soil_1km_Data_Site[c("Site_list.Site_ID", "CEC_Total_1km")]
 colnames(Soil_1km_Data_Site)<- c("Site_ID", "CEC_Total_1km")
