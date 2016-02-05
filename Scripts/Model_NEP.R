@@ -66,19 +66,17 @@ NEP<- merge(NEP, GPP_Site, by=c("Site_ID", "year"), all.x=TRUE) #Merge GPP produ
 # 1.2.1 Model 1 - From NEP
 
 # Compute transformed variables 
-f_Age_NEP<- function (x) {3.437699e+02*(exp(-5.336560e-03*x)) -1.042647e+03*(exp(-1.578798e-01*x))} # Age model
-f_Tair_NEP<- function (x) {-1.08456*x^2 +37.42899*x + 15.74958} # Tair model
-f_P_NEP<- function (x) {2.762248e+02*(1-exp(-1.954383e-03*x))} # Precipitation model
-f_Photo_NEP<- function (x) {-1.161296e-04*x^2+5.706779e-01*x -2.928120e+02} # GPP model
+f_Age_NEP<- function (x) {3.418801e+02*(exp(-5.334230e-03*x)) -1.042789e+03*(exp(-1.589315e-01*x))} # Age model
+f_Tair_NEP<- function (x) {-1.073267*x^2 +37.232210*x + 15.090029} # Tair model
+f_Photo_NEP<- function (x) {-1.142427e-04*x^2+5.591564e-01*x -2.833088e+02} # GPP model
 
-NEP$f_P<- f_P_NEP(NEP$Annual_Preci)
 NEP$f_Tair<- f_Tair_NEP(NEP$Tair)
 NEP$f_Age<- f_Age_NEP(NEP$Stand_Age)
 NEP$f_GPP<- f_Photo_NEP(NEP$GPP)
 
 # Perform stepwise regression
-lm.NEP<-lm(values ~ (f_P + f_Tair + f_Age + f_GPP)^2, data=NEP)
-step.NEP<- step(lm.NEP, direction = "both")
+lm.NEP<-lm(values ~ (Annual_Preci + f_Tair + f_Age + f_GPP + SPI_CRU + CEC_Total_1km)^2, data=NEP)
+step.NEP<- step(lm.NEP, direction = "backward")
 print(step.NEP)
 summary(step.NEP)
 
@@ -86,11 +84,12 @@ summary(step.NEP)
 NEP$pred_Model1 <- NA
 for(id in unique(NEP$Site_ID)){
   train.df <- NEP[NEP$Site_ID != id,]
-  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age", "f_GPP")]
-  lm.NEP<- lm(values ~ f_P + f_Tair + f_Age + f_GPP + f_P:f_Tair + 
-                f_P:f_Age + f_Tair:f_GPP + f_Age:f_GPP, data=train.df)
-  step.NEP<- step(lm.NEP, direction = "backward")
-  NEP.pred = predict(object = step.NEP, newdata = test.df)
+  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_Tair", "f_Age", "f_GPP", "SPI_CRU", "CEC_Total_1km")]
+  lm.NEP<- lm(values ~Annual_Preci + f_Tair + f_Age + f_GPP + 
+                SPI_CRU + CEC_Total_1km + Annual_Preci:f_Age + Annual_Preci:SPI_CRU + 
+                f_Tair:f_GPP + f_Tair:SPI_CRU + f_Age:SPI_CRU + f_GPP:CEC_Total_1km + 
+                SPI_CRU:CEC_Total_1km, data=train.df)
+  NEP.pred = predict(object = lm.NEP, newdata = test.df)
   NEP$pred_Model1[NEP$Site_ID == id] <- NEP.pred
 }
 
@@ -102,12 +101,12 @@ Bias_NEP<-pbias(NEP$pred_Model1, NEP$values)
 # 1.2.2 Model 2 - From NEP to GPP ratio
 
 # Compute transformed variables 
-f_Age_Ratio_NEP_GPP<- function (x) {0.227464785*(exp(-0.005010447*x)) -1.529965842*(exp(-0.169444307*x))} # Age model
+f_Age_Ratio_NEP_GPP<- function (x) {0.225119297*(exp(-0.005007755*x)) -1.530424388*(exp(-0.170444337*x))} # Age model
 NEP$f_Age_GPP<- f_Age_Ratio_NEP_GPP(NEP$Stand_Age)*NEP$GPPmax
 
 # Perform stepwise regression
-lm.NEP<-lm(values ~ (f_P + f_Tair + f_Age_GPP + f_GPP)^2, data=NEP)
-step.NEP<- step(lm.NEP, direction = "both")
+lm.NEP<-lm(values ~ (Annual_Preci + f_Tair + f_Age_GPP + f_GPP + SPI_CRU + CEC_Total_1km)^2, data=NEP)
+step.NEP<- step(lm.NEP, direction = "backward")
 print(step.NEP)
 summary(step.NEP)
 
@@ -115,11 +114,12 @@ summary(step.NEP)
 NEP$pred_Model2 <- NA
 for(id in unique(NEP$Site_ID)){
   train.df <- NEP[NEP$Site_ID != id,]
-  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age_GPP", "f_GPP")]
-  lm.NEP<- lm(values ~f_P + f_Tair + f_Age_GPP + f_GPP + f_P:f_Tair + 
-                f_Tair:f_GPP, data=train.df)
-  step.NEP<- step(lm.NEP, direction = "backward")
-  NEP.pred = predict(object = step.NEP, newdata = test.df)
+  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_Tair", "f_Age_GPP", "f_GPP", "SPI_CRU", "CEC_Total_1km")]
+  lm.NEP<- lm(values ~Annual_Preci + f_Tair + f_Age_GPP + f_GPP + 
+                SPI_CRU + CEC_Total_1km + Annual_Preci:f_Age_GPP + f_Tair:f_GPP + 
+                f_Tair:SPI_CRU + f_Age_GPP:SPI_CRU + f_GPP:CEC_Total_1km + 
+                SPI_CRU:CEC_Total_1km, data=train.df)
+  NEP.pred = predict(object = lm.NEP, newdata = test.df)
   NEP$pred_Model2[NEP$Site_ID == id] <- NEP.pred
 }
 
@@ -131,12 +131,12 @@ Bias_NEP<-pbias(NEP$pred_Model2, NEP$values)
 # 1.2.3 Model 2 - From GPP to ER ratio
 
 # Compute transformed variables 
-f_Age_Ratio_GPP_Reco<- function (x) {1.2159729*(1-exp(-0.2245381*x))} # Age model
+f_Age_Ratio_GPP_Reco<- function (x) {1.2134719*(1-exp(-0.2257333*x))} # Age model
 NEP$f_Age_GPP<- NEP$GPP- (NEP$GPPmax/f_Age_Ratio_GPP_Reco(NEP$Stand_Age))
 
 # Perform stepwise regression
-lm.NEP<-lm(values ~ (f_P + f_Tair + f_Age_GPP + f_GPP)^2, data=NEP)
-step.NEP<- step(lm.NEP, direction = "both")
+lm.NEP<-lm(values ~ (Annual_Preci + f_Tair + f_Age_GPP + f_GPP + SPI_CRU + CEC_Total_1km)^2, data=NEP)
+step.NEP<- step(lm.NEP, direction = "backward")
 print(step.NEP)
 summary(step.NEP)
 
@@ -144,11 +144,12 @@ summary(step.NEP)
 NEP$pred_Model3 <- NA
 for(id in unique(NEP$Site_ID)){
   train.df <- NEP[NEP$Site_ID != id,]
-  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_P", "f_Tair", "f_Age_GPP", "f_GPP")]
-  lm.NEP<- lm(values ~f_P + f_Tair + f_Age_GPP + f_GPP + f_P:f_Tair + 
-                f_Tair:f_GPP + f_Age_GPP:f_GPP, data=train.df)
-  step.NEP<- step(lm.NEP, direction = "backward")
-  NEP.pred = predict(object = step.NEP, newdata = test.df)
+  test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "f_Tair", "f_Age_GPP", "f_GPP", "SPI_CRU", "CEC_Total_1km")]
+  lm.NEP<- lm(values ~ Annual_Preci + f_Tair + f_Age_GPP + f_GPP + 
+                SPI_CRU + CEC_Total_1km + Annual_Preci:SPI_CRU + f_Tair:f_Age_GPP + 
+                f_Tair:f_GPP + f_Age_GPP:f_GPP + f_Age_GPP:SPI_CRU + f_GPP:CEC_Total_1km + 
+                SPI_CRU:CEC_Total_1km, data=train.df)
+  NEP.pred = predict(object = lm.NEP, newdata = test.df)
   NEP$pred_Model3[NEP$Site_ID == id] <- NEP.pred
 }
 
