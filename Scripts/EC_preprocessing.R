@@ -314,8 +314,8 @@ Site_list<-ddply(NEP, .(Site_ID),
                  x=mean(Long, na.rm=T))
 Site.xy<- Site_list[c("x", "y")]
 
-#7.2 SoilGrid 1km raster
-dir <- file.path(path, 'Soil_Data/1km')
+#7.2 SoilGrid 1km raster - CEC
+dir <- file.path(path, 'Soil_Data/CEC/1km')
 file <- list.files(dir, pattern=glob2rx('*.tif'), full.names=TRUE)
 Soil_1km_Raster<- stack(file)
 
@@ -331,6 +331,37 @@ wt<-c(0.05, 0.10, 0.15, 0.3, 0.4, 1)
 Soil_1km_Data_Site$CEC_Total_1km<-apply(Soil_1km_Data_Site[,-c(1:3)],1,weighted.mean,w=wt)
 Soil_1km_Data_Site<- Soil_1km_Data_Site[c("Site_list.Site_ID", "CEC_Total_1km")]
 colnames(Soil_1km_Data_Site)<- c("Site_ID", "CEC_Total_1km")
+
+# Add CEC per site in flux dataframe
+dfAll_Sites<- merge(dfAll_Sites, Soil_1km_Data_Site, by=c("Site_ID"), all.x=TRUE)
+
+# 8. Compute clay content
+
+# 7.1 Import Site coordinate
+NEP<- readRDS("Output/NEP.rds")
+Site_list<-ddply(NEP, .(Site_ID),
+                 summarise,
+                 y= mean(Lat, na.rm=T),
+                 x=mean(Long, na.rm=T))
+Site.xy<- Site_list[c("x", "y")]
+
+#8.2 SoilGrid 1km raster- Clay content
+dir <- file.path(path, 'Soil_Data/Clay_Content/1km')
+file <- list.files(dir, pattern=glob2rx('*.tif'), full.names=TRUE)
+Soil_1km_Raster<- stack(file)
+
+# Extract CEC value per site
+
+# Extract data and create dataframe
+Soil_1km_Data_Site <- data.frame(coordinates(Site.xy),
+                                 Site_list$Site_ID, 
+                                 extract(Soil_1km_Raster, Site.xy))
+
+# Compute CEC total
+wt<-c(0.05, 0.10, 0.15, 0.3, 0.4, 1)
+Soil_1km_Data_Site$Clay_1km<-apply(Soil_1km_Data_Site[,-c(1:3)],1,weighted.mean,w=wt)
+Soil_1km_Data_Site<- Soil_1km_Data_Site[c("Site_list.Site_ID", "Clay_1km")]
+colnames(Soil_1km_Data_Site)<- c("Site_ID", "Clay_1km")
 
 # Add CEC per site in flux dataframe
 dfAll_Sites<- merge(dfAll_Sites, Soil_1km_Data_Site, by=c("Site_ID"), all.x=TRUE)
@@ -358,11 +389,11 @@ Ratio_NEP_GPPmax<-Ratio_NEP_GPPmax[, !(colnames(Ratio_NEP_GPPmax) %in% c("values
 Ratio_NEP_GPPmax<-gather(Ratio_NEP_GPPmax, variable, values, -Annual_Preci, -year, 
                          -Ecosystem, -Climate, -Disturbance,
                          -Stand_Age, -Site_ID, -Stand_Replacement, -Int_Replacement,
-                         -Tair, -Rg, -Study, -Lat, -Long, -SPI_CRU, -SPEI_RS, -MAT_An, -CEC_Total_1km)
+                         -Tair, -Rg, -Study, -Lat, -Long, -SPI_CRU, -SPEI_RS, -MAT_An, -CEC_Total_1km, -Clay_1km)
 Ratio_NEP_GPPmax<- Ratio_NEP_GPPmax[c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "variable", "values", "Annual_Preci", 
-                                      "Tair","Rg", "Stand_Age", "SPI_CRU", "SPEI_RS", "MAT_An", "CEC_Total_1km", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
+                                      "Tair","Rg", "Stand_Age", "SPI_CRU", "SPEI_RS", "MAT_An", "CEC_Total_1km", "Clay_1km", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")]
 colnames(Ratio_NEP_GPPmax)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", "Annual_Preci", 
-                              "Tair", "Rg", "Stand_Age", "SPI_CRU", "SPEI_RS", "MAT_An", "CEC_Total_1km", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
+                              "Tair", "Rg", "Stand_Age", "SPI_CRU", "SPEI_RS", "MAT_An", "CEC_Total_1km", "Clay_1km", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 
 # 8.4 Create average site dataframe
 NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
@@ -374,7 +405,8 @@ NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
                      SPI_CRU=mean(SPI_CRU, na.rm=T),
                      SPEI_RS=mean(SPEI_RS, na.rm=T),
                      MAT_An=mean(MAT_An, na.rm=T),
-                     CEC_Total_1km= mean(CEC_Total_1km, na.rm=T))
+                     CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
+                     Clay_1km= mean(Clay_1km, na.rm=T))
 
 GPP_Mean_Site<-ddply(GPP, .(Site_ID, Type_Flux),
                      summarise,
@@ -385,7 +417,8 @@ GPP_Mean_Site<-ddply(GPP, .(Site_ID, Type_Flux),
                      SPI_CRU=mean(SPI_CRU, na.rm=T),
                      SPEI_RS=mean(SPEI_RS, na.rm=T),
                      MAT_An=mean(MAT_An, na.rm=T),
-                     CEC_Total_1km= mean(CEC_Total_1km, na.rm=T))
+                     CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
+                     Clay_1km= mean(Clay_1km, na.rm=T))
 
 Reco_Mean_Site<-ddply(Reco, .(Site_ID, Type_Flux),
                       summarise,
@@ -396,7 +429,8 @@ Reco_Mean_Site<-ddply(Reco, .(Site_ID, Type_Flux),
                       SPI_CRU=mean(SPI_CRU, na.rm=T),
                       SPEI_RS=mean(SPEI_RS, na.rm=T),
                       MAT_An=mean(MAT_An, na.rm=T),
-                      CEC_Total_1km= mean(CEC_Total_1km, na.rm=T))
+                      CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
+                      Clay_1km= mean(Clay_1km, na.rm=T))
 
 Ratio_NEP_GPP_Mean_Site<-ddply(Ratio_NEP_GPP, .(Site_ID, Type_Flux),
                                summarise,
@@ -407,7 +441,8 @@ Ratio_NEP_GPP_Mean_Site<-ddply(Ratio_NEP_GPP, .(Site_ID, Type_Flux),
                                SPI_CRU=mean(SPI_CRU, na.rm=T),
                                SPEI_RS=mean(SPEI_RS, na.rm=T),
                                MAT_An=mean(MAT_An, na.rm=T),
-                               CEC_Total_1km= mean(CEC_Total_1km, na.rm=T))
+                               CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
+                               Clay_1km= mean(Clay_1km, na.rm=T))
 
 Ratio_GPP_Reco_Mean_Site<-ddply(Ratio_GPP_Reco, .(Site_ID, Type_Flux),
                                 summarise,
@@ -418,7 +453,8 @@ Ratio_GPP_Reco_Mean_Site<-ddply(Ratio_GPP_Reco, .(Site_ID, Type_Flux),
                                 SPI_CRU=mean(SPI_CRU, na.rm=T),
                                 SPEI_RS=mean(SPEI_RS, na.rm=T),
                                 MAT_An=mean(MAT_An, na.rm=T),
-                                CEC_Total_1km= mean(CEC_Total_1km, na.rm=T))
+                                CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
+                                Clay_1km= mean(Clay_1km, na.rm=T))
 
 Ratio_NEP_GPPmax_Mean_Site<-ddply(Ratio_NEP_GPPmax, .(Site_ID, Type_Flux),
                                   summarise,
@@ -429,7 +465,8 @@ Ratio_NEP_GPPmax_Mean_Site<-ddply(Ratio_NEP_GPPmax, .(Site_ID, Type_Flux),
                                   SPI_CRU=mean(SPI_CRU, na.rm=T),
                                   SPEI_RS=mean(SPEI_RS, na.rm=T),
                                   MAT_An=mean(MAT_An, na.rm=T),
-                                  CEC_Total_1km= mean(CEC_Total_1km, na.rm=T))
+                                  CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
+                                  Clay_1km= mean(Clay_1km, na.rm=T))
 
 # 8.5 Save all dataframe in a rds files
 saveRDS(dfAll_Sites, file="Output/df_Annual_Flux.rds")
