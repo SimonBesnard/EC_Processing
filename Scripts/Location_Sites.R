@@ -9,6 +9,8 @@ library (tidyr)
 library (xtable)
 library(ggplot2)
 library(rworldmap)
+library (rbokeh)
+library (maps)
 
 #1. Map with the location of the fluxnet sites
 
@@ -18,6 +20,14 @@ Site_Location<-ddply(NEP, .(Site_ID),
                      summarise,
                      Lat= mean(Lat, na.rm=T),
                      Long=mean(Long, na.rm=T))
+# Create bokeh plot
+site<-gmap(lat=0, lng=0, zoom = 2, width = 700, height = 600) %>%
+  ly_points(Long, Lat, data = Site_Location, alpha = 0.8, col = "red", size=5,
+            hover = c(Site_ID))%>%
+  tool_box_select() %>%
+  tool_lasso_select() %>%
+  tool_reset()
+rbokeh2html(site, file="/media/simonbesnard/External_SB/SimonBesnard/PhD_MPI/Presentation/Figures/Site_Location.html")
 
 #1.2 Create background
 
