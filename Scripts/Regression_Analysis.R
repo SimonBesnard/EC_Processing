@@ -79,19 +79,13 @@ print(highlyCorrelated)
 
 # Stepwise regression
 lm.NEP<-lm(values ~ (f_Age + GPP + Stand_Age + Tair + SPI_CRU + Clay_1km)^2, data=NEP)
-step.NEP<- stepAIC(lm.NEP, direction = "backward")
+step.NEP<- stepAIC(lm.NEP, direction = "backward",  k = 2)
 summary(step.NEP)
 
-# Compute Importance variable
-bootswiss <- boot.relimp(values~ Stand_Age + f_Age + GPP + Tair + SPI_CRU + 
-                           Clay_1km + Stand_Age:f_Age + Stand_Age:GPP + Stand_Age:SPI_CRU + 
-                           f_Age:GPP + f_Age:Tair + f_Age:SPI_CRU +
-                           GPP:Tair + GPP:Clay_1km + Tair:SPI_CRU,
-                         data= NEP, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = T)
-print(booteval.relimp(bootswiss))
+# Check for residuals normality and homoskedasticity
+res1=residuals(lm.NEP)
+shapiro.test(res1)
+plot(step.NEP) # ncreasing trend in the scale location plot shows heteroskedasticity
 
 # Assess model performance
 NEP$prediction <- NA
@@ -99,10 +93,9 @@ for(id in unique(NEP$Site_ID)){
   train.df <- NEP[NEP$Site_ID != id,]
   test.df <- NEP[NEP$Site_ID == id, c("Annual_Preci", "Tair", "f_Tair", "Stand_Age", "f_Age", "GPP", "f_GPP", "SPI_CRU", "CEC_Total_1km",
                                       "Clay_1km", "MAT_An")]
-  lm.NEP<- lm(values~ f_Age + GPP + Stand_Age + Tair + SPI_CRU + 
+  lm.NEP<- lm(values~   f_Age + GPP + Stand_Age + Tair + SPI_CRU + 
                 Clay_1km + f_Age:GPP + f_Age:Stand_Age + f_Age:Tair + f_Age:SPI_CRU + 
-                f_Age:Clay_1km + GPP:Stand_Age + GPP:Tair + GPP:Clay_1km + 
-                Stand_Age:SPI_CRU + Tair:SPI_CRU,
+                f_Age:Clay_1km + GPP:Stand_Age + GPP:Tair,
               data=train.df)
   NEP.pred = predict(object = lm.NEP, newdata = test.df)
   NEP$prediction[NEP$Site_ID == id] <- NEP.pred
@@ -112,6 +105,18 @@ R2_NEP<- cor(NEP$prediction, NEP$values, use="complete")^2
 RMSE_NEP <- rmse(NEP$prediction, NEP$values)
 NSE_NEP<-NSE(NEP$prediction, NEP$values, na.rm=TRUE)
 Bias_NEP<-pbias(NEP$prediction, NEP$values)
+
+# Compute Importance variable
+VarImp_NEP <- boot.relimp(values~ Stand_Age + f_Age + GPP + Tair + SPI_CRU + 
+                           Clay_1km + Stand_Age:f_Age + Stand_Age:GPP + Stand_Age:SPI_CRU + 
+                           f_Age:GPP + f_Age:Tair + f_Age:SPI_CRU +
+                           GPP:Tair + GPP:Clay_1km + Tair:SPI_CRU,
+                         data= NEP, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = T)
+print(booteval.relimp(VarImp_NEP))
+
 
 ## Mean site
 #-----------------------------------------------------------------
@@ -149,14 +154,10 @@ lm.NEP_Mean_Site<-lm(values ~ (f_Age + f_GPP + f_Tair + Stand_Age + SPI_CRU + CE
 step.NEP_Mean_Site<- step(lm.NEP_Mean_Site, direction = "backward")
 summary(step.NEP_Mean_Site)
 
-
-# Compute Importance variable
-bootswiss <- boot.relimp(values~ f_Age + f_GPP + SPI_CRU + f_Age:SPI_CRU, 
-                         data= NEP_Mean_Site, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = T)
-print(booteval.relimp(bootswiss))
+# Check for residuals normality and homoskedasticity
+res1=residuals(lm.NEP_Mean_Site)
+shapiro.test(res1)
+plot(step.NEP_Mean_Site) # ncreasing trend in the scale location plot shows heteroskedasticity
 
 # Assess model performance
 NEP_Mean_Site$prediction <- NA
@@ -177,123 +178,15 @@ RMSE_NEP_Mean_Site <- rmse(NEP_Mean_Site$prediction, NEP_Mean_Site$values)
 NSE_NEP_Mean_Site<-NSE(NEP_Mean_Site$prediction, NEP_Mean_Site$values, na.rm=TRUE)
 Bias_NEP_Mean_Site<-pbias(NEP_Mean_Site$prediction, NEP_Mean_Site$values)
 
-# 1.2 Analysis for Ratio GPP-Reco
-
-## All years per site
-#-----------------------------------------------------------------
-# Compute transform function
-
-#Age
-Fun_Ratio_GPP_Reco<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco, 
-                         start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
-coef(Fun_Ratio_GPP_Reco)
-f_Age_Ratio_GPP_Reco<- function (x) {1.2134719*(1-exp(-0.2257333*x))}
-
-#Tair
-Fun_Tair<-nlsLM(values~A*Tair^2+B*Tair+C, data = Ratio_GPP_Reco, 
-                start = list(A=-0.9222 , B=32.9461, C= 6.5651), control = list(maxiter = 500))
-coef(Fun_Tair)
-f_Tair_Ratio_GPP_Reco<- function (x) {-0.00125467*x^2+0.03968507*x+ 0.99669771}
-
-# GPP
-Fun_GPP_ER_Photo<-nlsLM(values~A*(GPP^B)*(exp(k*GPP)), data = Ratio_GPP_Reco, 
-                        start = list(A = 0.0662924, B =0.4576941, k =-0.0002671), control = list(maxiter = 500))
-coef(Fun_GPP_ER_Photo)
-f_Photo_Ratio_GPP_Reco<- function (x) {0.0591990517*(x^0.4768037616)*(exp(-0.0002775358*x))}
-
-# Append transform climate variables and stand age
-Ratio_GPP_Reco$f_Tair<- f_Tair_Ratio_GPP_Reco(Ratio_GPP_Reco$Tair)
-Ratio_GPP_Reco$f_Age<- f_Age_Ratio_GPP_Reco(Ratio_GPP_Reco$Stand_Age)
-Ratio_GPP_Reco$f_GPP<- f_Photo_Ratio_GPP_Reco(Ratio_GPP_Reco$GPP)
-
-# Stepwise regression
-lm.Ratio_GPP_Reco<-lm(values ~ (f_Age + f_GPP + f_Tair + SPI_CRU + Stand_Age)^2, data=Ratio_GPP_Reco)
-step.Ratio_GPP_Reco<- stepAIC(lm.Ratio_GPP_Reco, direction = "backward")
-summary(step.Ratio_GPP_Reco)
-
 # Compute Importance variable
-bootswiss <- boot.relimp(values~ f_Age + f_GPP + f_Tair + SPI_CRU + f_Age:SPI_CRU + 
-                           f_Tair:SPI_CRU, 
-                         data= Ratio_GPP_Reco, 
+VarImp_NEP_Mean_Site <- boot.relimp(values~ f_Age + f_GPP + SPI_CRU + f_Age:SPI_CRU, 
+                         data= NEP_Mean_Site, 
                          b = 100,  
                          type = "lmg",
                          rank = TRUE, diff = TRUE, rela = T)
-print(booteval.relimp(bootswiss))
+print(booteval.relimp(VarImp_NEP_Mean_Site))
 
-# Assess model performance
-Ratio_GPP_Reco$prediction <- NA
-for(id in unique(Ratio_GPP_Reco$Site_ID)){
-  train.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID != id,]
-  test.df <- Ratio_GPP_Reco[Ratio_GPP_Reco$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_Tair", "f_Age", "f_GPP", "SPI_CRU",
-                                                            "MAT_An", "CEC_Total_1km")]
-  lm.Ratio_GPP_Reco<- lm(values ~  f_Age + f_GPP + f_Tair + SPI_CRU + f_Age:SPI_CRU + 
-                           f_Tair:SPI_CRU, data=train.df)
-  Ratio_GPP_Reco.pred = predict(object = lm.Ratio_GPP_Reco, newdata = test.df)
-  Ratio_GPP_Reco$prediction[Ratio_GPP_Reco$Site_ID == id] <- Ratio_GPP_Reco.pred
-}
-
-R2_Ratio_GPP_Reco<- cor(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values, use="complete")^2
-RMSE_Ratio_GPP_Reco <- (sum((Ratio_GPP_Reco$prediction-Ratio_GPP_Reco$values)^2)/length(Ratio_GPP_Reco$values))^(1/2)
-NSE_Ratio_GPP_Reco<-NSE(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values, na.rm=TRUE)
-Bias_Ratio_GPP_Reco<-pbias(Ratio_GPP_Reco$prediction, Ratio_GPP_Reco$values)  
-
-## Mean site
------------------------------------------------------------------
-# Compute transform function
-  
-#Age
-Fun_Ratio_GPP_Reco_Mean_Site<-nlsLM(values~A*(1-exp(k*Stand_Age)), data = Ratio_GPP_Reco_Mean_Site, 
-                            start = list(A= 1.1582, k= -0.2312), control = list(maxiter = 500))
-coef(Fun_Ratio_GPP_Reco_Mean_Site)
-f_Age_Ratio_GPP_Reco_Mean_Site<- function (x) {1.205008*(1-exp(-0.243221*x))}
-
-#Tair
-Fun_Tair<-nlsLM(values~A*Tair^2+B*Tair+C, data = Ratio_GPP_Reco_Mean_Site, 
-                start = list(A= -0.001214, B=0.036857, C= 0.979401), control = list(maxiter = 500))
-coef(Fun_Tair)
-f_Tair_Ratio_GPP_Reco_Mean_Site<- function (x) {-0.0007484326*x^2+ 0.0259862124*x + 1.0399136528}
-
-# GPP
-Fun_GPP_ER_Photo<-nlsLM(values~A*(GPP^B)*(exp(k*GPP)), data = Ratio_GPP_Reco_Mean_Site, 
-                        start = list(A = 0.0662924, B =0.4576941, k =-0.0002671), control = list(maxiter = 500))
-coef(Fun_GPP_ER_Photo)
-f_Photo_Ratio_GPP_Reco<- function (x) {0.0451066043*(x^0.5238655238)*(exp(-0.0003126905*x))}
-
-# Append transformed variables
-Ratio_GPP_Reco_Mean_Site$f_Tair<- f_Tair_Ratio_GPP_Reco_Mean_Site(Ratio_GPP_Reco_Mean_Site$Tair)
-Ratio_GPP_Reco_Mean_Site$f_Age<- f_Age_Ratio_GPP_Reco_Mean_Site(Ratio_GPP_Reco_Mean_Site$Stand_Age)
-Ratio_GPP_Reco_Mean_Site$f_GPP<- f_Photo_Ratio_GPP_Reco(Ratio_GPP_Reco_Mean_Site$GPP)
-
-# Stepwise regression
-lm.Ratio_GPP_Reco_Mean_Site<-lm(values ~ (f_Age + f_GPP + f_Tair + SPI_CRU)^2, data=Ratio_GPP_Reco_Mean_Site)
-step.Ratio_GPP_Reco_Mean_Site<- stepAIC(lm.Ratio_GPP_Reco_Mean_Site, direction = "backward")
-summary(step.Ratio_GPP_Reco_Mean_Site)
-
-# Compute Importance variable
-bootswiss <- boot.relimp(values~ f_Age + f_GPP + f_Tair + SPI_CRU + f_GPP:f_Tair,  
-                         data= Ratio_GPP_Reco_Mean_Site, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = T)
-print(booteval.relimp(bootswiss))
-
-# Assess model performance
-Ratio_GPP_Reco_Mean_Site$prediction <- NA
-for(id in unique(Ratio_GPP_Reco_Mean_Site$Site_ID)){
-  train.df <- Ratio_GPP_Reco_Mean_Site[Ratio_GPP_Reco_Mean_Site$Site_ID != id,]
-  test.df <- Ratio_GPP_Reco_Mean_Site[Ratio_GPP_Reco_Mean_Site$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_Tair", "f_Age", "f_GPP",
-                                                                                "SPI_CRU", "MAT_An", "CEC_Total_1km")]
-  lm.Ratio_GPP_Reco_Mean_Site<- lm(values ~f_Age + f_GPP + f_Tair + SPI_CRU + f_GPP:f_Tair,  data=train.df)
-  Ratio_GPP_Reco_Mean_Site.pred = predict(object = lm.Ratio_GPP_Reco_Mean_Site, newdata = test.df)
-  Ratio_GPP_Reco_Mean_Site$prediction[Ratio_GPP_Reco_Mean_Site$Site_ID == id] <- Ratio_GPP_Reco_Mean_Site.pred
-}
-
-R2_Ratio_GPP_Reco_Mean_Site<- cor(Ratio_GPP_Reco_Mean_Site$prediction, Ratio_GPP_Reco_Mean_Site$values, use= "complete")^2
-RMSE_Ratio_GPP_Reco_Mean_Site <- (sum((Ratio_GPP_Reco_Mean_Site$prediction-Ratio_GPP_Reco_Mean_Site$values)^2)/length(Ratio_GPP_Reco_Mean_Site$values))^(1/2)
-NSE_Ratio_GPP_Reco_Mean_Site<-NSE(Ratio_GPP_Reco_Mean_Site$prediction, Ratio_GPP_Reco_Mean_Site$values, na.rm=TRUE)
-Bias_Ratio_GPP_Reco_Mean_Site<-pbias(Ratio_GPP_Reco_Mean_Site$prediction, Ratio_GPP_Reco_Mean_Site$values)  
-
-# 1.3 Analysis for Ratio NEP-GPP
+# 1.2 Analysis for Ratio NEP-GPP
 
 ## All years per site
 #-----------------------------------------------------------------
@@ -332,14 +225,10 @@ lm.Ratio_NEP_GPP<-lm(values ~ (f_Age + f_GPP + f_Tair + Stand_Age + SPI_CRU + Cl
 step.Ratio_NEP_GPP<- stepAIC(lm.Ratio_NEP_GPP, direction = "backward")
 summary(step.Ratio_NEP_GPP)
 
-# Compute Importance variable
-bootswiss <- boot.relimp(values~ f_Age + f_GPP + f_Tair + SPI_CRU + f_Age:SPI_CRU + 
-                           f_GPP:f_Tair + f_GPP:SPI_CRU, 
-                         data= Ratio_NEP_GPP, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = T)
-print(booteval.relimp(bootswiss))
+# Check for residuals normality and homoskedasticity
+res1=residuals(lm.Ratio_NEP_GPP)
+shapiro.test(res1)
+plot(step.Ratio_NEP_GPP) # ncreasing trend in the scale location plot shows heteroskedasticity
 
 # Assess model performance
 Ratio_NEP_GPP$prediction <- NA
@@ -357,7 +246,16 @@ for(id in unique(Ratio_NEP_GPP$Site_ID)){
 R2_Ratio_NEP_GPP<- cor(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values, use="complete")^2
 RMSE_Ratio_NEP_GPP <- (sum((Ratio_NEP_GPP$prediction-Ratio_NEP_GPP$values)^2)/length(Ratio_NEP_GPP$values))^(1/2)
 NSE_Ratio_NEP_GPP<-NSE(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values, na.rm=TRUE)
-Bias_Ratio_NEP_GPP<-pbias(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values)  
+Bias_Ratio_NEP_GPP<-pbias(Ratio_NEP_GPP$prediction, Ratio_NEP_GPP$values) 
+
+# Compute Importance variable
+VarImp_NEP_GPP <- boot.relimp(values~ f_Age + f_GPP + f_Tair + SPI_CRU + f_Age:SPI_CRU + 
+                           f_GPP:f_Tair + f_GPP:SPI_CRU, 
+                         data= Ratio_NEP_GPP, 
+                         b = 100,  
+                         type = "lmg",
+                         rank = TRUE, diff = TRUE, rela = T)
+print(booteval.relimp(VarImp_NEP_GPP))
 
 ## Mean site
 -----------------------------------------------------------------
@@ -396,14 +294,10 @@ lm.Ratio_NEP_GPP_Mean_Site<-lm(values ~ (f_Age + f_GPP + f_Tair + Stand_Age + SP
 step.Ratio_NEP_GPP_Mean_Site<- stepAIC(lm.Ratio_NEP_GPP_Mean_Site, direction = "backward")
 summary(step.Ratio_NEP_GPP_Mean_Site)
 
-# Compute Importance variable
-bootswiss <- boot.relimp(values~ f_Age + f_GPP + f_Tair + SPI_CRU + f_Age:SPI_CRU + 
-                           f_GPP:f_Tair + f_GPP:SPI_CRU, 
-                         data= Ratio_NEP_GPP_Mean_Site, 
-                         b = 100,  
-                         type = "lmg",
-                         rank = TRUE, diff = TRUE, rela = T)
-print(booteval.relimp(bootswiss))
+# Check for residuals normality and homoskedasticity
+res1=residuals(lm.Ratio_NEP_GPP_Mean_Site)
+shapiro.test(res1)
+plot(step.Ratio_NEP_GPP_Mean_Site) # ncreasing trend in the scale location plot shows heteroskedasticity
 
 # Assess model performance
 Ratio_NEP_GPP_Mean_Site$prediction <- NA
@@ -411,9 +305,9 @@ for(id in unique(Ratio_NEP_GPP_Mean_Site$Site_ID)){
   train.df <- Ratio_NEP_GPP_Mean_Site[Ratio_NEP_GPP_Mean_Site$Site_ID != id,]
   test.df <- Ratio_NEP_GPP_Mean_Site[Ratio_NEP_GPP_Mean_Site$Site_ID == id, c("Annual_Preci", "Tair", "Stand_Age", "f_Tair", "f_Age", "GPP", "f_GPP", "SPI_CRU", "MAT_An",
                                                           "CEC_Total_1km", "Clay_1km")]
-  lm.Ratio_NEP_GPP_Mean_Site<- lm(values ~ f_Age + GPP + Tair + Stand_Age + SPI_CRU + 
-                                    CEC_Total_1km + f_Age:GPP + f_Age:Tair + f_Age:Stand_Age + 
-                                    f_Age:SPI_CRU + f_Age:CEC_Total_1km + Tair:SPI_CRU + Stand_Age:CEC_Total_1km, data=train.df)
+  lm.Ratio_NEP_GPP_Mean_Site<- lm(values ~ f_Age + f_GPP + f_Tair + Stand_Age + SPI_CRU + 
+                          Clay_1km + f_Age:Stand_Age + f_Age:SPI_CRU +
+                          f_GPP:f_Tair + f_GPP:Stand_Age + f_Tair:SPI_CRU, data=train.df)
   Ratio_NEP_GPP_Mean_Site.pred = predict(object = lm.Ratio_NEP_GPP_Mean_Site, newdata = test.df)
   Ratio_NEP_GPP_Mean_Site$prediction[Ratio_NEP_GPP_Mean_Site$Site_ID == id] <- Ratio_NEP_GPP_Mean_Site.pred
 }
@@ -421,8 +315,16 @@ for(id in unique(Ratio_NEP_GPP_Mean_Site$Site_ID)){
 R2_Ratio_NEP_GPP_Mean_Site<- cor(Ratio_NEP_GPP_Mean_Site$prediction, Ratio_NEP_GPP_Mean_Site$values, use="complete")^2
 RMSE_Ratio_NEP_GPP_Mean_Site <- (sum((Ratio_NEP_GPP_Mean_Site$prediction-Ratio_NEP_GPP_Mean_Site$values)^2)/length(Ratio_NEP_GPP_Mean_Site$values))^(1/2)
 NSE_Ratio_NEP_GPP_Mean_Site<-NSE(Ratio_NEP_GPP_Mean_Site$prediction, Ratio_NEP_GPP_Mean_Site$values, na.rm=TRUE)
-Bias_Ratio_NEP_GPP_Mean_Site<-pbias(Ratio_NEP_GPP_Mean_Site$prediction, Ratio_NEP_GPP_Mean_Site$values)  
+Bias_Ratio_NEP_GPP_Mean_Site<-pbias(Ratio_NEP_GPP_Mean_Site$prediction, Ratio_NEP_GPP_Mean_Site$values) 
 
+# Compute Importance variable
+VarImp_NEP_GPP_Mean_Site <- boot.relimp(values~ f_Age + f_GPP + f_Tair + SPI_CRU + f_Age:SPI_CRU + 
+                                f_GPP:f_Tair + f_GPP:SPI_CRU, 
+                              data= Ratio_NEP_GPP_Mean_Site, 
+                              b = 100,  
+                              type = "lmg",
+                              rank = TRUE, diff = TRUE, rela = T)
+print(booteval.relimp(VarImp_NEP_GPP_Mean_Site)) 
 
 # 2. Plot observed vs. actual for the different flux
 
