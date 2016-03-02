@@ -19,6 +19,7 @@ library(bfastSpatial)
 library(SPEI)
 library (soiltexture)
 library(GSIF)
+library (ncdf)
 
 #1. Create a df for all fluxnet sites dataframe
 
@@ -29,11 +30,10 @@ list <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
 #Loop over the list of files
 Fluxnet_Site <- list()
 for(i in seq_along(list)) {
-  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f','Reco',
+  Fluxnet_Site[[i]] = fLoadFluxNCIntoDataframe(VarList.V.s=c('NEE_f','GPP_f',
                                                              'NEE_fqcOK'),
                                                FileName.s=list[i], NcPackage.s = 'RNetCDF')
 }
-
 
 #2. Compute dataframe for time since disturbance or stand age analysis
 #Open csv file with flux site metadata
@@ -53,7 +53,6 @@ Site_Date$Plantation_Date<- as.Date(Site_Date$Plantation_Date)
 for (i in seq_along(Fluxnet_Site)){
   Fluxnet_Site[[i]]$NEE_f <- with(Fluxnet_Site[[i]], ave(NEE_f, year, FUN = function(x) if(any(is.na(x))) NA else x))
   Fluxnet_Site[[i]]$GPP_f <- with(Fluxnet_Site[[i]], ave(GPP_f, year, FUN = function(x) if(any(is.na(x))) NA else x))
-  Fluxnet_Site[[i]]$Reco <- with(Fluxnet_Site[[i]], ave(Reco, year, FUN = function(x) if(any(is.na(x))) NA else x))
 }
 
 #3. Analyse annual carbon flux
@@ -61,9 +60,7 @@ for (i in seq_along(Fluxnet_Site)){
 # Compute sum/mean annual +/- sd
 Sum_Sd_Flux<-lapply(Fluxnet_Site, function (x) ddply(x, "year",
                                                      summarize,
-                                                     NEE= sum(NEE_f, na.rm=T),
                                                      GPP= sum(GPP_f, na.rm=T),
-                                                     Respiration= sum(Reco,na.rm=T),
                                                      NEP=sum(-NEE_f, na.rm=T),
                                                      mean_Uncert=mean(NEE_fqcOK, na.rm=T)))
 
@@ -73,7 +70,6 @@ for (i in seq_along(Sum_Sd_Flux)){
   Sum_Sd_Flux[[i]]$Climate<- Site_Date$Climate[i]
   Sum_Sd_Flux[[i]]$Disturbance<- Site_Date$Type_Disturbance[i]
   Sum_Sd_Flux[[i]]$Stand_Age<- Sum_Sd_Flux[[i]]$year- year(as.Date(Site_Date$Plantation_Date[i]))
-  Sum_Sd_Flux[[i]]$GPP_ER<- Sum_Sd_Flux[[i]]$GPP / Sum_Sd_Flux[[i]]$Respiration
   Sum_Sd_Flux[[i]]$NEP_GPP<- Sum_Sd_Flux[[i]]$NEP / Sum_Sd_Flux[[i]]$GPP
   Sum_Sd_Flux[[i]]$Site_ID<- Site_Date$ID[i]
   Sum_Sd_Flux[[i]]$Study<- Site_Date$Study[i]
@@ -89,8 +85,8 @@ dfAll_Sites<- do.call("rbind", Sum_Sd_Flux)
 # Remove disturbed years
 # sites: AU-Tum (2003: insect outbreak), BE-Bra (2000: thinning), CA-Ca2 (2001: forest not planted yet), 
 #CA-SJ2 (2004: outlier for GPP values), JP-Tef (2002: year before plantation) NL-Loo (2006: storm), SE-Nor (2005: thinning occured this year), UK-Gri (2006:Thinning)
-# US-Nc2 (2006: insect attack), US-SO2 (2004: wildfire), US-SP1 (2005: storm), US-Wcr (2002: insect attack)
-dfAll_Sites<-dfAll_Sites[-c(3, 13, 64, 167, 371, 388, 423, 437, 508, 523, 541, 573),]
+# US-DK3 (2002-2003: storm), US-Nc2 (2006: insect attack), US-SO2 (2004: wildfire), US-SP1 (2005: storm), US-Wcr (2002: insect attack)
+dfAll_Sites<-dfAll_Sites[-c(3, 13, 65, 167, 371, 388, 423, 437, 459, 460, 508, 523, 541, 573),]
 
 # Remove years missing in each flux site
 dfAll_Sites = dfAll_Sites[!is.na(dfAll_Sites$mean_Uncert),]
@@ -117,8 +113,6 @@ colnames(dfAll_Sites)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacemen
 
 # Append forest global database
 Glob_Forest_df<-read.csv("Input/Forest_Global_Database.csv", header = TRUE)
-Glob_Forest_df$GPP_ER<-Glob_Forest_df$GPP / Glob_Forest_df$Respiration
-Glob_Forest_df$NEP= -Glob_Forest_df$NEE
 Glob_Forest_df$NEP_GPP<-Glob_Forest_df$NEP / Glob_Forest_df$GPP
 Glob_Forest_df<- gather(Glob_Forest_df, variable, value, -year, 
                         -Ecosystem, -Climate, -Disturbance,
@@ -129,6 +123,9 @@ Glob_Forest_df<- Glob_Forest_df[c("Site_ID", "year", "Stand_Replacement", "Int_R
 colnames(Glob_Forest_df)<-c("Site_ID", "year", "Stand_Replacement", "Int_Replacement", "Type_Flux", "values", 
                             "Stand_Age", "Disturbance", "Climate", "Ecosystem", "Study", "Lat", "Long")
 dfAll_Sites<-rbind(dfAll_Sites, Glob_Forest_df)
+
+# Remove site not included in the analysis
+dfAll_Sites<- dfAll_Sites[dfAll_Sites$Study %in% c("Yes"),]
 
 # 4. Compute SPEI index from CRU dataset
 
@@ -172,7 +169,7 @@ for(i in seq_along(list)) {
 
 # 4.2 Compute SPEI from CRU
 
-# Compute SPI
+# Compute SPEI
 MAP_Site_df<- do.call("rbind", MAP_Site)
 colnames(MAP_Site_df)<- c("ID", "year", "month", "MAP")
 PET_Site_df<- do.call("rbind", PET_Site)
@@ -189,34 +186,14 @@ SPEI_Site_df<- ddply(SPEI_Site_df, .(ID, year),
                      SPEI_CRU= mean(SPEI_CRU, na.rm=T))
 
 # 4.3 Add Site ID to dataset
-dir <- file.path(path, 'GPP_Extraction')
-list <- list.files(dir, pattern=glob2rx('*.csv'), full.names=TRUE)
-Site_ID<- read.csv(list, header=T,  check.names=FALSE, sep=",")
+Site_ID<- read.csv("Input/Site_Location.csv")
 SPEI_Site_df<- merge(SPEI_Site_df, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
 SPEI_Site_df<- SPEI_Site_df[c("Site_ID", "year", "SPEI_CRU")]
 
-# 4.4 Include SPI from CRU into flux dataset
+# 4.4 Include SPEI from CRU into flux dataset
 dfAll_Sites<- merge(dfAll_Sites, SPEI_Site_df, by=c("Site_ID", "year"), all.x=TRUE)
 
 # 5. Compute SPI index from CRU dataset
-
-# 5.1 Import precipitation data from CRU
-dir <- file.path(path, 'CRU/Precipitation')
-list <- list.files(dir, pattern=glob2rx('*.txt'), full.names=TRUE)
-MAP_Site <- list()
-for(i in seq_along(list)) {
-  MAP_Site[[i]] = read.table(list[i], header=T,  check.names=FALSE, sep=",")
-  MAP_Site[[i]]<- MAP_Site[[i]][-c(2),]
-  paste(names(MAP_Site[[i]]), MAP_Site[[i]][1,])
-  names(MAP_Site[[i]]) <- paste(names(MAP_Site[[i]]), MAP_Site[[i]][1,])
-  MAP_Site[[i]] <- tail(MAP_Site[[i]], -1)
-  MAP_Site[[i]]<- MAP_Site[[i]] %>% gather(date, value, -`year 82`)
-  MAP_Site[[i]]<- MAP_Site[[i]] %>% separate(date, c("year", "month"))
-  colnames(MAP_Site[[i]])<- c("ID", "year", "month", "MAP")
-  MAP_Site[[i]]$ID <- as.character(MAP_Site[[i]]$ID)
-  MAP_Site[[i]]$ID <- sapply(MAP_Site[[i]]$ID, function(id) as.numeric(strsplit(id,"[.]")[[1]][2]))
-  MAP_Site[[i]] <- MAP_Site[[i]][with(MAP_Site[[i]], order(ID)),]
-}
 
 # 5.2 Compute SPI from CRU
 
@@ -240,9 +217,17 @@ SPI_Site_df<- SPI_Site_df[c("Site_ID", "year", "SPI_CRU")]
 # 5.4 Include SPI from CRU into flux dataset
 dfAll_Sites<- merge(dfAll_Sites, SPI_Site_df, by=c("Site_ID", "year"), all.x=TRUE)
 
+#5.5. Include annual precipitation into flux dataset
+MAP_CRU_Site<- ddply(do.call("rbind", MAP_Site), .(ID, year),
+                     summarize,
+                     MAP_CRU= sum(MAP, na.rm=T))
+MAP_CRU_Site<- merge(MAP_CRU_Site, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
+MAP_CRU_Site<- MAP_CRU_Site[c("Site_ID", "year", "MAP_CRU")]
+dfAll_Sites<- merge(dfAll_Sites, MAP_CRU_Site, by=c("Site_ID", "year"), all.x=TRUE)
+
 # 6. Compute temperature anomalies from CRU data
 
-# 6.1 Import precipitation data from CRU
+# 6.1 Import temperature data from CRU
 dir <- file.path(path, 'CRU/Mean_Temp')
 list <- list.files(dir, pattern=glob2rx('*.txt'), full.names=TRUE)
 MAT_Site <- list()
@@ -261,56 +246,44 @@ for(i in seq_along(list)) {
 }
 
 # Compute average temperature per site since 1900
-Mean_MAT_Site<- ddply(do.call("rbind", MAT_Site), .(ID, year),
+Mean_MAT_Site<- ddply(do.call("rbind", MAT_Site), .(ID, month),
                       summarize,
                       MAT_Mean= mean(MAT, na.rm=T))
 
-# Add Site ID
-Mean_MAT_Site$Site_ID<- Site_ID$Site_ID
-
-# Add average temperature per site since 1900 in flux dataframe
-dfAll_Sites<- merge(dfAll_Sites, Mean_MAT_Site, by=c("Site_ID"), all.x=TRUE)
-
-# Compute average temperature per site per year
-MAT_CRU_Site<- ddply(do.call("rbind", MAT_Site), .(ID, year),
-                     summarize,
-                     MAT_CRU= mean(MAT, na.rm=T))
-
-MAT_CRU_Site<- merge(MAT_CRU_Site, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
-MAT_CRU_Site<- MAT_CRU_Site[c("Site_ID", "year", "MAT_CRU")]
-
-# Add average temperature per site per yeat in flux dataframe
-dfAll_Sites<- dfAll_Sites[c("Site_ID", "year.x", "Type_Flux", "values", "Stand_Age", "Climate", "Ecosystem", 
-                            "Study" , "Lat", "Long", "SPEI_CRU","SPI_CRU","MAT_Mean")]
-colnames(dfAll_Sites)<- c("Site_ID", "year", "Type_Flux", "values", "Stand_Age", "Climate", "Ecosystem", 
-                          "Study" , "Lat", "Long", "SPEI_CRU","SPI_CRU","MAT_Mean") 
-dfAll_Sites<- merge(dfAll_Sites, MAT_CRU_Site, by=c("Site_ID", "year"), all.x=TRUE)
-
 # Compute temperature anomalies
-dfAll_Sites$MAT_An<- dfAll_Sites$MAT_CRU - dfAll_Sites$MAT_Mean
+MAT_An<- do.call("rbind", MAT_Site)
+MAT_An<- merge(MAT_An, Mean_MAT_Site, by=c("ID", "month"), all.x=TRUE)
+MAT_An$MAT_An<- MAT_An$MAT - MAT_An$MAT_Mean
+MAT_An<- merge(MAT_An, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
+MAT_An<- MAT_An[c("Site_ID", "month", "year", 'MAT', "MAT_Mean", "MAT_An")]
 
-# 6. Append CRU precipitation  to dataset
-
-# Compute sum precipitation per site per year
-MAP_CRU_Site<- ddply(do.call("rbind", MAP_Site), .(ID, year),
+# Compute temperature/average anomalies per site per year and add them to dlux dataframe
+Anom_Site<- ddply(MAT_An, .(Site_ID, year),
                      summarize,
-                     MAP_CRU= sum(MAP, na.rm=T))
+                     MAT_An= mean(MAT_An, na.rm=T),
+                  MAT_CRU= mean(MAT, na.rm=T))
+Anom_Site<- Anom_Site[c("Site_ID", "year", "MAT_An", "MAT_CRU")]
+dfAll_Sites<- merge(dfAll_Sites, Anom_Site, by=c("Site_ID", "year"), all.x=TRUE)
 
-MAP_CRU_Site<- merge(MAP_CRU_Site, Site_ID, by.x="ID", by.y="ID", all.x=TRUE)
-MAP_CRU_Site<- MAP_CRU_Site[c("Site_ID", "year", "MAP_CRU")]
-
-# Add average precipitation per site per yeat in flux dataframe
-dfAll_Sites<- merge(dfAll_Sites, MAP_CRU_Site, by=c("Site_ID", "year"), all.x=TRUE)
+# Compute trend temperature anomalies
+Anom_Site$year<- as.numeric(Anom_Site$year)
+for(id in unique(Anom_Site$Site_ID)){
+  train.df <- Anom_Site[Anom_Site$Site_ID == id,]
+  lm.An<- lm(MAT_An~ year,
+              data=train.df)
+  Anom_Site$Trend_An[Anom_Site$Site_ID == id]<- lm.An$fitted.values
+}
+Anom_Site<- Anom_Site[c("Site_ID", "year", "Trend_An")]
+dfAll_Sites<- merge(dfAll_Sites, Anom_Site, by=c("Site_ID", "year"), all.x=TRUE)
+dfAll_Sites<- dfAll_Sites[c("Site_ID", "year", "Type_Flux", "values", "Stand_Age", "Disturbance", "Climate", "Ecosystem", 
+                            "Study" , "Lat", "Long", "SPEI_CRU","SPI_CRU", "MAT_CRU", "MAT_An", "MAP_CRU", "Trend_An")]
 
 # 7. Compute CEC
 
 # 7.1 Import Site coordinate
-NEP<- readRDS("Output/NEP.rds")
-Site_list<-ddply(NEP, .(Site_ID),
-                 summarise,
-                 y= mean(Lat, na.rm=T),
-                 x=mean(Long, na.rm=T))
-Site.xy<- Site_list[c("x", "y")]
+Site_list<- read.csv("Input/Site_Location.csv")
+Site.xy<- Site_list[c("Long", "Lat")]
+colnames(Site.xy)<- c("x", "y")
 
 #7.2 SoilGrid 1km raster - CEC
 dir <- file.path(path, 'Soil_Data/CEC/1km')
@@ -400,38 +373,52 @@ colnames(Soil_1km_Data_Site)<- c("Site_ID", "Sand_1km")
 # Add Sand per site in flux dataframe
 dfAll_Sites<- merge(dfAll_Sites, Soil_1km_Data_Site, by=c("Site_ID"), all.x=TRUE)
 
-#11. Perform soil texture
-tdf <- NEP_Mean_Site[,c("Clay_1km", "Silt_1km", "Sand_1km")]
-tdf<- tdf[77,]
-tdf$Sum = rowSums(tdf)
-for(i in c("Clay_1km", "Silt_1km", "Sand_1km")) { tdf[,i] <- tdf[,i]/tdf$Sum * 100 }
-names(tdf)[1:3] <- c("CLAY", "SILT", "SAND")
-TT.plot(class.sys = "USDA.TT", tri.data = tdf, grid.show = FALSE, pch="+", cex=1, col="red")
+# Add loaminess
+dfAll_Sites$Clay_Silt<- dfAll_Sites$Clay_1km + dfAll_Sites$Silt_1km
 
-# 11. Create dataframe for post-processing
+#11. Perform N deposition
 
-# 11.1 Append soil texture to dataframe
-Flux_High<-dfAll_Sites[dfAll_Sites$Study %in% c("Yes"),] #keep the site used in the study
-dir <- file.path(path, 'Soil_Data/Soil_Texture')
-file <- list.files(dir, pattern=glob2rx('*.csv'), full.names=TRUE)
-Soil_text<- read.csv(file)
-Flux_High<- dfAll_Sites<- merge(Flux_High, Soil_text, by=c("Site_ID"), all.x=TRUE)
-Flux_High$Clay_Silt<- Flux_High$Clay_1km + Flux_High$Silt_1km 
+#11.1. Load ncdf files
+dir <- file.path(path, 'Soil_Data/N_Deposition')
+file <- list.files(dir, pattern=glob2rx('*.nc'), full.names=TRUE)
+
+#11.2 Create raster files of NOy and NHx
+NOy_Raster <- raster(file, varname="NOy_deposition")
+NHx_Raster <- raster(file, varname="NHx_deposition")
+
+# 11.3 Export NOy and NHx values per site
+N_Depo_Site <- data.frame(coordinates(Site.xy),
+                                 Site_list$Site_ID, 
+                                 extract(NOy_Raster, Site.xy), 
+                                 extract(NHx_Raster, Site.xy))
+
+N_Depo_Site<- N_Depo_Site[c("Site_list.Site_ID", "extract.NOy_Raster..Site.xy.",  "extract.NHx_Raster..Site.xy.")]
+colnames(N_Depo_Site)<- c("Site_ID", "NOy", "NHx")
+
+# 11.4 Add N depo values per site in flux dataframe
+dfAll_Sites<- merge(dfAll_Sites, N_Depo_Site, by=c("Site_ID"), all.x=TRUE)
+
+# 12.Include soil quality index
+Soil_Text<- read.csv("Input/Soil_Texture.csv")
+dfAll_Sites<- merge(dfAll_Sites, Soil_Text, by=c("Site_ID"), all.x=TRUE)
+
+# 13. Create dataframe for post-processing
 
 # Subset dataframe according to type of flux
+Flux_High<- dfAll_Sites[dfAll_Sites$Study %in% c("Yes"),]
 NEP<- Flux_High[Flux_High$Type_Flux %in% c("NEP"),]
 GPP<- Flux_High[Flux_High$Type_Flux %in% c("GPP"),]
 Reco<- Flux_High[Flux_High$Type_Flux %in% c("Respiration"),]
 Ratio_NEP_GPP<- Flux_High[Flux_High$Type_Flux %in% c("NEP_GPP"),]
 Ratio_GPP_Reco<- Flux_High[Flux_High$Type_Flux %in% c("GPP_ER"),]
 
-#11.2 Compute GPPclimax based on the lieth model
+#13.2 Compute GPPclimax based on the lieth model
 params <- c(GPP15= 1923, GPP1000=1827, a1=242, a2=0.049, k=-0.00025)
 GPP$GPPmat<-with(as.list(params), GPP15*((1+exp(a1-a2*15))/(1+exp(a1-a2*GPP$MAT_CRU))))
 GPP$GPPp<-with(as.list(params), GPP1000*((1-exp(-k*GPP$MAP_CRU))/(1-exp(-k*1000))))
 GPP<-transform(GPP, GPPmax = pmin(GPPmat, GPPp))
 
-# 8.4 Create average site dataframe
+# 13.4 Create average site dataframe
 NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
                      summarise,
                      Stand_Age= mean(Stand_Age, na.rm=T),
@@ -441,9 +428,15 @@ NEP_Mean_Site<-ddply(NEP, .(Site_ID, Type_Flux),
                      SPI_CRU=mean(SPI_CRU, na.rm=T),
                      SPEI_CRU=mean(SPEI_CRU, na.rm=T),
                      MAT_An=mean(MAT_An, na.rm=T),
+                     Trend_An= mean(Trend_An, na.rm=T),
                      CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
                      Clay_Silt= mean(Clay_Silt, na.rm=T),
-                     Soil_Quality= mean(Soil_Quality, na.rm=T))
+                     Clay_1km= mean(Clay_1km, na.rm=T),
+                     Silt_1km= mean(Silt_1km, na.rm=T),
+                     Sand_1km= mean(Sand_1km, na.rm=T),
+                     Soil_Quality= mean(Soil_Quality, na.rm=T), 
+                     NOy= mean(NOy, na.rm=T),
+                     NHx=mean(NHx, na.rm=T))
 
 GPP_Mean_Site<-ddply(GPP, .(Site_ID, Type_Flux),
                      summarise,
@@ -454,9 +447,15 @@ GPP_Mean_Site<-ddply(GPP, .(Site_ID, Type_Flux),
                      SPI_CRU=mean(SPI_CRU, na.rm=T),
                      SPEI_CRU=mean(SPEI_CRU, na.rm=T),
                      MAT_An=mean(MAT_An, na.rm=T),
+                     Trend_An= mean(Trend_An, na.rm=T),
                      CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
                      Clay_Silt= mean(Clay_Silt, na.rm=T),
-                     Soil_Quality= mean(Soil_Quality, na.rm=T))
+                     Clay_1km= mean(Clay_1km, na.rm=T),
+                     Silt_1km= mean(Silt_1km, na.rm=T),
+                     Sand_1km= mean(Sand_1km, na.rm=T),
+                     Soil_Quality= mean(Soil_Quality, na.rm=T), 
+                     NOy= mean(NOy, na.rm=T),
+                     NHx=mean(NHx, na.rm=T))
 
 Ratio_NEP_GPP_Mean_Site<-ddply(Ratio_NEP_GPP, .(Site_ID, Type_Flux),
                                summarise,
@@ -467,11 +466,17 @@ Ratio_NEP_GPP_Mean_Site<-ddply(Ratio_NEP_GPP, .(Site_ID, Type_Flux),
                                SPI_CRU=mean(SPI_CRU, na.rm=T),
                                SPEI_CRU=mean(SPEI_CRU, na.rm=T),
                                MAT_An=mean(MAT_An, na.rm=T),
+                               Trend_An= mean(Trend_An, na.rm=T),
                                CEC_Total_1km= mean(CEC_Total_1km, na.rm=T),
                                Clay_Silt= mean(Clay_Silt, na.rm=T),
-                               Soil_Quality= mean(Soil_Quality, na.rm=T))
+                               Clay_1km= mean(Clay_1km, na.rm=T),
+                               Silt_1km= mean(Silt_1km, na.rm=T),
+                               Sand_1km= mean(Sand_1km, na.rm=T),
+                               Soil_Quality= mean(Soil_Quality, na.rm=T), 
+                               NOy= mean(NOy, na.rm=T),
+                               NHx=mean(NHx, na.rm=T))
 
-# 8.5 Save all dataframe in a rds files
+# 13.5 Save all dataframe in a rds files
 saveRDS(dfAll_Sites, file="Output/df_Annual_Flux.rds")
 saveRDS(NEP, file="Output/NEP.rds")
 saveRDS(NEP_Mean_Site, file="Output/NEP_Mean_Site.rds")
